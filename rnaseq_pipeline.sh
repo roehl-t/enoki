@@ -115,7 +115,56 @@ done
 export PATH="$PATH:${BLASTDIR}"
 
 # main script block
-pipeline() {
+mojo() {
+
+echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> START: " $0 $SCRIPTARGS
+touch ${ALIGNLOC}/mergelist.txt
+for ((i=0; i<=${#reads1[@]}-1; i++ )); do
+    sample="${reads1[$i]%%.*}"
+    #sample="${sample%_R1*}"
+    sample="${sample%_L001*}"
+    echo "Sample name: " ${sample}
+    
+    # in case of interruption, skip finished files
+    if [[ -f ${ALIGNLOC}/${sample}.gtf ]]; then
+        echo "${sample} complete in HISAT2 and StringTie. Skipping..."
+    else
+        
+        unpairedBoth=${FASTQLOC}/${unpaired1[$i]},${FASTQLOC}/${unpaired2[$i]},${FASTQLOC}/${unpaired3[$i]}
+        stime=`date +"%Y-%m-%d %H:%M:%S"`
+        echo "[$stime] Processing sample: $sample"
+        echo [$stime] "   * Alignment of reads to genome (HISAT2)"
+        $HISAT2 -p $NUMCPUS --dta -x ${GENOMEIDX} \
+         -1 ${FASTQLOC}/${reads1[$i]} \
+         -2 ${FASTQLOC}/${reads2[$i]} \
+         -S ${TEMPLOC}/${sample}.sam 2>${ALIGNLOC}/${sample}.alnstats \
+         -U ${unpairedBoth} \
+         --seed 12345 --un-gz ${BASEDIR}/unmapped \
+         --un-conc ${BASEDIR}/unmapped
+         #defaults kept for strandedness, alignment, and scoring options
+
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "   * Alignments conversion (SAMTools)"
+        if [[ "$newsamtools" ]]; then
+         $SAMTOOLS view -S -b ${TEMPLOC}/${sample}.sam | \
+          $SAMTOOLS sort -@ $NUMCPUS -o ${ALIGNLOC}/${sample}.bam -
+        else
+         $SAMTOOLS view -S -b ${TEMPLOC}/${sample}.sam | \
+          $SAMTOOLS sort -@ $NUMCPUS - ${ALIGNLOC}/${sample}
+        fi
+        $SAMTOOLS index ${ALIGNLOC}/${sample}.bam
+        #$SAMTOOLS flagstat ${ALIGNLOC}/${sample}.bam
+        
+        echo "..removing intermediate files"
+        rm ${TEMPLOC}/${sample}.sam
+        #rm ${TEMPLOC}/${sample}.unsorted.bam
+
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "   * Assemble transcripts (StringTie)"
+        $STRINGTIE -p $NUMCPUS -o ${ALIGNLOC}/${sample}.gtf \
+         -l ${sample} ${ALIGNLOC}/${sample}.bam \
+         -c 1.5
+         # -m kept at default of 0.01
+    fi
+done
 
 ## run rest of pipeline on various sample sets
 setnames=("all" "300" "5k" "culnor" "priyou")
@@ -171,7 +220,6 @@ for ((j=0; j<="${#setnames[@]}"-1; j++ )); do
             -o ${BALLGOWNLOC}/${dsample}/${dsample}.gtf ${ALIGNLOC}/${sample}.bam
         fi
     done
-
 
     # create transcript FASTA file
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Generate fasta transcript file from .gtf"
@@ -324,7 +372,8 @@ for ((j=0; j<="${#setnames[@]}"-1; j++ )); do
     # extract infromation from UniProt stitle
     Rscript ${FIXUNIPROT} ${UNIPROTDIR}/${setname}_tome_blastx_results.csv ${UNIPROTDIR}/${setname}_tome_blastx_results_readable.csv ${UNIPROTDIR}
 
-         ## generate heat maps
+
+     ## generate heat maps
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Creating Heat Maps"
 
     if [[ ! -d ${BALLGOWNLOC}/bg_output/heatmaps ]]; then
@@ -383,7 +432,7 @@ for ((j=0; j<="${#setnames[@]}"-1; j++ )); do
         # query NCBI's EFetch
         # assemble into FASTA file
             # all done in Python3 script:
-python3 ${UNIPROTFASTA} ${BALLGOWNLOC}/panther/${basename}_ncbi_lis.txt ${BALLGOWNLOC}/panther/${basename}_fasta.fa ${deglist}
+        python3 ${UNIPROTFASTA} ${BALLGOWNLOC}/panther/${basename}_ncbi_lis.txt ${BALLGOWNLOC}/panther/${basename}_fasta.fa ${deglist}
         
         # BLAST FASTA file against PANTHER HMM to map to PANTHER IDs
             # see https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6519453/#BX2
@@ -404,4 +453,4 @@ done
 echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> DONE."
 } #pipeline end
 
-pipeline 2>&1 | tee $LOGFILE
+mojo 2>&1 | tee $LOGFILE
