@@ -115,7 +115,7 @@ done
 export PATH="$PATH:${BLASTDIR}"
 
 # main script block
-pipeline() {
+mojo() {
 
 echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> START: " $0 $SCRIPTARGS
 touch ${ALIGNLOC}/mergelist.txt
@@ -453,4 +453,4 @@ done
 echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> DONE."
 } #pipeline end
 
-pipeline 2>&1 | tee $LOGFILE
+mojo 2>&1 | tee $LOGFILE
