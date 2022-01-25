@@ -432,7 +432,7 @@ for ((j=0; j<="${#setnames[@]}"-1; j++ )); do
         # query NCBI's EFetch
         # assemble into FASTA file
             # all done in Python3 script:
-        python3 ${UNIPROTFASTA} ${BALLGOWNLOC}/panther/${basename}_ncbi_lis.txt ${BALLGOWNLOC}/panther/${basename}_fasta.fa ${deglist}
+        python3 ${UNIPROTFASTA} ${BALLGOWNLOC}/panther/${basename}_ncbi_list.txt ${BALLGOWNLOC}/panther/${basename}_fasta.fa ${deglist}
         
         # BLAST FASTA file against PANTHER HMM to map to PANTHER IDs
             # see https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6519453/#BX2
