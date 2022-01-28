@@ -1,6 +1,7 @@
 # created by Thomas Roehl on 12/20/2021
 
 import sys
+import time
 import pandas
 import urllib.parse
 import urllib.request
@@ -62,14 +63,30 @@ output_fasta_open = open(output_fasta_file_name, 'a')
 ncbilist = ncbiresult[1]
 uniprotlist = uniprot_id_list.split(' ')
 
+counter = 0
+APIkey = '' # add in an NCBI API key here if you have one
 for index in range(len(uniprotlist)):
-    ncbi = ncbilist[index]
-    prot = uniprotlist[index]
-    url = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=protein&id=' + ncbi + '&rettype=fasta&retmode=text'
-    req = urllib.request.Request(url)
-    with urllib.request.urlopen(req) as f:
-       response = f.read()
-    fasta = response.decode('utf-8')
-    mapping = prot + ',' + ncbi + '\n'
-    output_list_open.write(mapping)
-    output_fasta_open.write(fasta) ################## may need to add a '\n' to the end of the response
+    # slow down script to avoid error messages from NCBI
+    # max 3 requests/sec if no API key, max 10 requests/sec if API key included
+    if APIkey == '' and counter >= 3:
+        time.sleep(1)
+        counter = 1
+    elif counter >= 10:
+        time.sleep(1)
+        counter = 1
+    else:
+        counter = counter + 1
+    
+    if index > 0: # the first row of ncbilist is a header row, so skip index == 0
+        ncbi = ncbilist[index]
+        prot = uniprotlist[index]
+        url = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=protein&id=' + ncbi + '&rettype=fasta&retmode=text'
+        if APIkey != '':
+            url = url + '&api_key=' + APIkey
+        req = urllib.request.Request(url)
+        with urllib.request.urlopen(req) as f:
+           response = f.read()
+        fasta = response.decode('utf-8')
+        mapping = prot + ',' + ncbi + '\n'
+        output_list_open.write(mapping)
+        output_fasta_open.write(fasta)
