@@ -11,14 +11,14 @@ input_id_list_file_name = sys.argv[3] # .csv including column of UniProt_id
 
 ## read data
 print('reading data file')
-data = pandas.read_csv(input_id_list_file_name, keep_default_na=False)
+datatable = pandas.read_csv(input_id_list_file_name, keep_default_na=False)
 
 ## create query list, remove duplicates
 # uniprot name list must have ids separated by spaces, example:'P40925 P40926 O43175 Q9UM73 P97793'
 uniprot_id_list = ''
-for index in range(len(data.UniProt_id)):
-    if data.UniProt_id[index] != 'NA' and uniprot_id_list.find(data.UniProt_id[index]) < 0:
-        uniprot_id_list = uniprot_id_list + " " + data.UniProt_id[index]
+for index in range(len(datatable.UniProt_id)):
+    if datatable.UniProt_id[index] != 'NA' and uniprot_id_list.find(data.UniProt_id[index]) < 0:
+        uniprot_id_list = uniprot_id_list + " " + datatable.UniProt_id[index]
 
 
 ## code from UniProt to query online database
