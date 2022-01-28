@@ -49,8 +49,14 @@ ncbiresult = pandas.DataFrame([row.split('\t') for row in ncbistlist])
 # see https://www.ncbi.nlm.nih.gov/books/NBK25499/#_chapter4_EFetch_
 print('Querying NCBI EFetch')
 
-output_list_open = open(output_id_list_file_name, 'a')
+# overwrite previous data in output files
+output_list_open = open(output_id_list_file_name, 'w')
+output_list_open.write('UniProtKB,NCBI_Protein\n')
+output_fasta_open = open(output_fasta_file_name, 'w')
+output_list_open.write('')
 
+# open output files in append mode
+output_list_open = open(output_id_list_file_name, 'a')
 output_fasta_open = open(output_fasta_file_name, 'a')
 
 ncbilist = ncbiresult[1]
