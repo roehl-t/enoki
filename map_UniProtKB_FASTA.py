@@ -40,7 +40,9 @@ data = data.encode('utf-8')
 req = urllib.request.Request(url, data)
 with urllib.request.urlopen(req) as f:
    response = f.read()
-ncbiresult = response.decode('utf-8')
+ncbistring = response.decode('utf-8')
+ncbistlist = ncbistring.split('/n')
+ncbiresult = pandas.DataFrame([row.split('\t') for row in ncbistlist])
 
 
 ## query NCBI EFetch
@@ -51,7 +53,7 @@ output_list_open = open(output_id_list_file_name, 'a')
 
 output_fasta_open = open(output_fasta_file_name, 'a')
 
-ncbilist = ncbiresult.split('\t')
+ncbilist = ncbiresult[1]
 uniprotlist = uniprot_id_list.split(' ')
 
 for index in range(len(uniprotlist)):
@@ -63,5 +65,5 @@ for index in range(len(uniprotlist)):
        response = f.read()
     fasta = response.decode('utf-8')
     mapping = prot + ',' + ncbi + '\n'
-    ouptut_list_open.write(mapping)
+    output_list_open.write(mapping)
     output_fasta_open.write(fasta) ################## may need to add a '\n' to the end of the response
