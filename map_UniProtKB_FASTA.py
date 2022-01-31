@@ -8,7 +8,8 @@ import urllib.request
 
 output_id_list_file_name = sys.argv[1] # name of the UniProt-NCBI pair list output file
 output_fasta_file_name = sys.argv[2] # name of the output file
-input_id_list_file_name = sys.argv[3] # .csv including column of UniProt_id
+APIkey = sys.argv[3] # add in an NCBI API key here if you have one, otherwise enter ""
+input_id_list_file_name = sys.argv[4] # .csv including column of UniProt_id
 
 ## read data
 print('reading data file')
@@ -89,7 +90,6 @@ ncbilist = ncbiresult[1]
 uniprotlist = ncbiresult[0]
 
 counter = 0
-APIkey = '' # add in an NCBI API key here if you have one
 for index in range(len(uniprotlist)):
     # slow down script to avoid error messages from NCBI
     # max 3 requests/sec if no API key, max 10 requests/sec if API key included
