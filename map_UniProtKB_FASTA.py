@@ -16,32 +16,57 @@ datatable = pandas.read_csv(input_id_list_file_name, keep_default_na=False)
 
 ## create query list, remove duplicates
 # uniprot name list must have ids separated by spaces, example:'P40925 P40926 O43175 Q9UM73 P97793'
-uniprot_id_list = ''
+counter = 0
+first = True
+uniprotidlists = ['']
+uniprotidlist = ''
+uniprotidlistfull = ''
 for index in range(len(datatable.UniProt_id)):
-    if datatable.UniProt_id[index] != 'NA' and uniprot_id_list.find(data.UniProt_id[index]) < 0:
-        uniprot_id_list = uniprot_id_list + " " + datatable.UniProt_id[index]
+    if counter >= 5000: # split list into lists of 5000 entries to avoid UniProt server errors
+        counter = 0
+        if first:
+            uniprotidlists[0] = uniprotidlist
+            first = False
+        else:
+            uniprotidlists.append(uniprotidlist)
+        uniprotidlist = ''
+    if datatable.UniProt_id[index] != 'NA' and uniprotidlistfull.find(data.UniProt_id[index]) < 0:
+        if uniprotidlist == '':
+            uniprotidlist = datatable.UniProt_id[index]
+        else:
+            uniprotidlist = uniprotidlist + " " + datatable.UniProt_id[index]
+        if uniprotidlistfull = '':
+            uniprotidlistfull = datatable.UniProt_id[index]
+        else:
+            uniprotidlistfull = uniprotidlistfull + " " + datatable.UniProt_id[index]
+if first:
+    uniprotidlists[0] = uniprotidlist
+else:
+    uniprotidlists.append(uniprotidlist)
 
+ncbistring = ''
+for sublist in uniprotidlists:
+    ## code from UniProt to query online database
+    # instructions from UniProt: keep lists < 20,000 and remove repeats
+    # see https://www.uniprot.org/help/api_idmapping for list of available database conversions
 
-## code from UniProt to query online database
-# instructions from UniProt: keep lists < 20,000 and remove repeats
-# see https://www.uniprot.org/help/api_idmapping for list of available database conversions
+    url = 'https://www.uniprot.org/uploadlists/'
 
-url = 'https://www.uniprot.org/uploadlists/'
+    params = {
+    'from': 'ID',
+    'to': 'EMBL',
+    'format': 'tab',
+    'query': sublist
+    }
 
-params = {
-'from': 'ID',
-'to': 'EMBL',
-'format': 'tab',
-'query': uniprot_id_list
-}
+    print('Querying UniProt Retrieve/ID mapping')
+    data = urllib.parse.urlencode(params)
+    data = data.encode('utf-8')
+    req = urllib.request.Request(url, data)
+    with urllib.request.urlopen(req) as f:
+       response = f.read()
+    ncbistring = response.decode('utf-8')
 
-print('Querying UniProt Retrieve/ID mapping')
-data = urllib.parse.urlencode(params)
-data = data.encode('utf-8')
-req = urllib.request.Request(url, data)
-with urllib.request.urlopen(req) as f:
-   response = f.read()
-ncbistring = response.decode('utf-8')
 ncbistlist = ncbistring.split('/n')
 ncbiresult = pandas.DataFrame([row.split('\t') for row in ncbistlist])
 
@@ -61,7 +86,7 @@ output_list_open = open(output_id_list_file_name, 'a')
 output_fasta_open = open(output_fasta_file_name, 'a')
 
 ncbilist = ncbiresult[1]
-uniprotlist = uniprot_id_list.split(' ')
+uniprotlist = ncbiresult[0]
 
 counter = 0
 APIkey = '' # add in an NCBI API key here if you have one
@@ -77,7 +102,7 @@ for index in range(len(uniprotlist)):
     else:
         counter = counter + 1
     
-    if index > 0: # the first row of ncbilist is a header row, so skip index == 0
+    if ncbilist[index] != 'To': # skip any header rows ('From\tTo\n') -- lists may contain several embedded in various places
         ncbi = ncbilist[index]
         prot = uniprotlist[index]
         url = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=protein&id=' + ncbi + '&rettype=fasta&retmode=text'
