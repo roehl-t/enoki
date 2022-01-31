@@ -5,6 +5,7 @@ import time
 import pandas
 import urllib.parse
 import urllib.request
+from urllib.error import HTTPError
 
 output_id_list_file_name = sys.argv[1] # name of the UniProt-NCBI pair list output file
 output_fasta_file_name = sys.argv[2] # name of the output file
@@ -109,8 +110,27 @@ for index in range(len(uniprotlist)):
         if APIkey != '':
             url = url + '&api_key=' + APIkey
         req = urllib.request.Request(url)
-        with urllib.request.urlopen(req) as f:
-           response = f.read()
+        
+        # retry server-side errors
+        attempts = 0
+        while attempts < 5:
+            attempts += 1
+            try:
+                with urllib.request.urlopen(req) as f:
+                   response = f.read()
+                break
+            except HTTPError as err:
+                if err.code == 500 or err.code == 502 or err.code == 503 or err.code == 504 or err.code == 429:
+                    if attempts >= 5:
+                        print('failed for ' + attempts + ' attempts:')
+                        print(url)
+                        raise
+                    else:
+                        # wait a bit, then continue with loop
+                        time.sleep(2**(attempts-1))
+                else:
+                    raise
+        
         fasta = response.decode('utf-8')
         mapping = prot + ',' + ncbi + '\n'
         output_list_open.write(mapping)
