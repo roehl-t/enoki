@@ -69,6 +69,10 @@ for sublist in uniprotidlists:
        response = f.read()
     ncbistring = response.decode('utf-8')
 
+# remove last \n from string, otherwise it will return a type error later on
+if ncbistring[len(ncbistring)-1] == '\n':
+    ncbistring = ncbistring[0 : len(ncbistring)-1]
+
 ncbistlist = ncbistring.split('/n')
 ncbiresult = pandas.DataFrame([row.split('\t') for row in ncbistlist])
 
