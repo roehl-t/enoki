@@ -419,7 +419,7 @@ for ((j=0; j<="${#setnames[@]}"-1; j++ )); do
 
     # for each DEG list and reference list...
 
-    python3 ${UNIPROTFASTA} ${BALLGOWNLOC}/panther/tome_ncbi_list.csv ${BALLGOWNLOC}/panther/tome_fasta.fa ${UNIPROTDIR}/${setname}_tome_blastx_results_readable.csv
+    python3 ${UNIPROTFASTA} ${BALLGOWNLOC}/panther/tome_ncbi_list.csv ${BALLGOWNLOC}/panther/tome_fasta.fa "" ${UNIPROTDIR}/${setname}_tome_blastx_results_readable.csv
     perl ${PANTHERSCORE} -l /Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/panther/lib/ -D B -V -i ${BALLGOWNLOC}/panther/tome_fasta.fa -o ${BALLGOWNLOC}/panther/output/tome_panther_mapping.txt -n -s
 
     for deglist in ${BALLGOWNLOC}/bg_output/named/*_expr.csv; do
@@ -432,7 +432,7 @@ for ((j=0; j<="${#setnames[@]}"-1; j++ )); do
         # query NCBI's EFetch
         # assemble into FASTA file
             # all done in Python3 script:
-        python3 ${UNIPROTFASTA} ${BALLGOWNLOC}/panther/${basename}_ncbi_list.csv ${BALLGOWNLOC}/panther/${basename}_fasta.fa ${deglist}
+        python3 ${UNIPROTFASTA} ${BALLGOWNLOC}/panther/${basename}_ncbi_list.csv ${BALLGOWNLOC}/panther/${basename}_fasta.fa "" ${deglist}
         
         # BLAST FASTA file against PANTHER HMM to map to PANTHER IDs
             # see https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6519453/#BX2
