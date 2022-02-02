@@ -425,7 +425,7 @@ for ((j=0; j<="${#setnames[@]}"-1; j++ )); do
     # for each named protein, get the NCBI Protein database sequence and add it to a FASTA file
     python3 ${UNIPROTFASTA} ${BALLGOWNLOC}/panther/tome_ncbi_list.csv ${BALLGOWNLOC}/panther/tome_fasta.fa "" ${UNIPROTDIR}/${setname}_tome_blastx_results_readable.csv
     # score FASTA file against PANTHER HMMs to map to PANTHER IDs
-    perl ${PANTHERSCORE} -l ${PANTHERLIBDIR} -D B -V -i ${BALLGOWNLOC}/panther/tome_fasta.fa -o ${BALLGOWNLOC}/panther/output/tome_panther_mapping.txt -n -s
+    perl ${PANTHERSCORE} -l ${PANTHERLIBDIR} -D B -i ${BALLGOWNLOC}/panther/tome_fasta.fa -o ${BALLGOWNLOC}/panther/output/tome_panther_mapping.txt -n -s
 
     for deglist in ${BALLGOWNLOC}/bg_output/named/*_expr.csv; do
         base=${deglist##*/}
@@ -435,7 +435,7 @@ for ((j=0; j<="${#setnames[@]}"-1; j++ )); do
         # for each named protein, get the NCBI Protein database sequence and add it to a FASTA file
         python3 ${UNIPROTFASTA} ${BALLGOWNLOC}/panther/${basename}_ncbi_list.csv ${BALLGOWNLOC}/panther/${basename}_fasta.fa "" ${deglist}
         # score FASTA file against PANTHER HMMs to map to PANTHER IDs
-        perl ${PANTHERSCORE} -l ${PANTHERLIBDIR} -D B -V -i ${BALLGOWNLOC}/panther/${basename}_fasta.fa -o ${BALLGOWNLOC}/panther/${basename}_panther_mapping.csv -n -s
+        perl ${PANTHERSCORE} -l ${PANTHERLIBDIR} -D B -i ${BALLGOWNLOC}/panther/${basename}_fasta.fa -o ${BALLGOWNLOC}/panther/${basename}_panther_mapping.csv -n -s
             # output is tab-delimited: sequence ID, panther acc, panther family/subfamily, HMM e-value, HMM bitscore, alignment range
         
         # map PANTHER IDs to fpkm tables
