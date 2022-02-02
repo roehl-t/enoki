@@ -385,24 +385,24 @@ for ((j=0; j<="${#setnames[@]}"-1; j++ )); do
         base=${basename%.csv}
        
         # map all genes
-        Rscript ${HEATMAP} ${resultfile} ${PHENODATA} ${BALLGOWNLOC}/bg_output/heatmaps/${base}_heatmap_all.pdf "all" "all" "all" ${BALLGOWNLOC}/bg_output/
+        Rscript ${HEATMAP} ${resultfile} ${PHENODATA} ${BALLGOWNLOC}/bg_output/heatmaps/${base}_heatmap_all.pdf "all" "all" "all" "F" ${BALLGOWNLOC}/bg_output/
        
         # map specific genes
         #genelist=("cytochrome" "hydrophobin,psh" "mitogen,mapk,map" "elongation")
         #for ((k=0; k<=${#genelist[@]}-1; k++)); do
-               # Rscript ${HEATMAP} ${resultfile} ${PHENODATA} ${BALLGOWNLOC}/bg_output/heatmaps/${base}_heatmap_genes_${k}.pdf ${genelist[k]} "all" "all" ${BALLGOWNLOC}/bg_output/
+               # Rscript ${HEATMAP} ${resultfile} ${PHENODATA} ${BALLGOWNLOC}/bg_output/heatmaps/${base}_heatmap_genes_${k}.pdf ${genelist[k]} "all" "all" "F" ${BALLGOWNLOC}/bg_output/
         #done
        
         # map genes from specific organisms
         #orglist=("Flammulina")
         #for ((k=0; k<=${#orglist[@]}-1; k++)); do
-                #Rscript ${HEATMAP} ${resultfile} ${PHENODATA} ${BALLGOWNLOC}/bg_output/heatmaps/${base}_heatmap_orgs_${k}.pdf "all" "all" ${orglist[k]} ${BALLGOWNLOC}/bg_output/
+                #Rscript ${HEATMAP} ${resultfile} ${PHENODATA} ${BALLGOWNLOC}/bg_output/heatmaps/${base}_heatmap_orgs_${k}.pdf "all" "all" ${orglist[k]} "F" ${BALLGOWNLOC}/bg_output/
         #done
        
         # map specific samples
         #samplelist=("nor,cul")
         #for ((k=0; k<=${#samplelist[@]}-1; k++)); do
-             #   Rscript ${HEATMAP} ${resultfile} ${PHENODATA} ${BALLGOWNLOC}/bg_output/heatmaps/${base}_heatmap_samples_${k}.pdf "all" ${samplelist[k]} "all" ${BALLGOWNLOC}/bg_output/
+             #   Rscript ${HEATMAP} ${resultfile} ${PHENODATA} ${BALLGOWNLOC}/bg_output/heatmaps/${base}_heatmap_samples_${k}.pdf "all" ${samplelist[k]} "all" "F" ${BALLGOWNLOC}/bg_output/
         #done
     done
     
