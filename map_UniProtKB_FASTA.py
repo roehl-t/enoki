@@ -132,6 +132,7 @@ for index in range(len(uniprotlist)):
                     else:
                         # wait a bit, then continue with loop
                         time.sleep(2**(attempts-1))
+                        counter = 1
                 else:
                     raise
         
