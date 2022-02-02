@@ -422,8 +422,10 @@ for ((j=0; j<="${#setnames[@]}"-1; j++ )); do
     # PantherScore won't work unless the working directory is the directory that contains PantherScore and the program's lib folder
     cd /Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/panther/pantherScore2.2
 
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Converting UniProtKB IDs to FASTA..."
     # for each named protein, get the NCBI Protein database sequence and add it to a FASTA file
     python3 ${UNIPROTFASTA} ${BALLGOWNLOC}/panther/tome_ncbi_list.csv ${BALLGOWNLOC}/panther/tome_fasta.fa "" ${UNIPROTDIR}/${setname}_tome_blastx_results_readable.csv
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Running PantherScore..."
     # score FASTA file against PANTHER HMMs to map to PANTHER IDs
     perl ${PANTHERSCORE} -l ${PANTHERLIBDIR} -D B -i ${BALLGOWNLOC}/panther/tome_fasta.fa -o ${BALLGOWNLOC}/panther/output/tome_panther_mapping.txt -n -s
 
@@ -433,13 +435,16 @@ for ((j=0; j<="${#setnames[@]}"-1; j++ )); do
         echo "Current list: ${basename}"
 
         # for each named protein, get the NCBI Protein database sequence and add it to a FASTA file
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Converting UniProtKB IDs to FASTA..."
         python3 ${UNIPROTFASTA} ${BALLGOWNLOC}/panther/${basename}_ncbi_list.csv ${BALLGOWNLOC}/panther/${basename}_fasta.fa "" ${deglist}
         # score FASTA file against PANTHER HMMs to map to PANTHER IDs
-        perl ${PANTHERSCORE} -l ${PANTHERLIBDIR} -D B -i ${BALLGOWNLOC}/panther/${basename}_fasta.fa -o ${BALLGOWNLOC}/panther/${basename}_panther_mapping.csv -n -s
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Running PantherScore..."
+        perl ${PANTHERSCORE} -l ${PANTHERLIBDIR} -D B -i ${BALLGOWNLOC}/panther/${basename}_fasta.fa -o ${BALLGOWNLOC}/panther/output/${basename}_panther_mapping.csv -n -s
             # output is tab-delimited: sequence ID, panther acc, panther family/subfamily, HMM e-value, HMM bitscore, alignment range
         
         # map PANTHER IDs to fpkm tables
-        Rscript ${PANTHERFPKM} ${deglist} ${BALLGOWNLOC}/panther/${basename}_panther_mapping.csv ${PHENODATA} ${BALLGOWNLOC}/panther/output/${basename} ${BALLGOWNLOC}
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Matching PANTHER IDs to FPKM tables..."
+        Rscript ${PANTHERFPKM} ${deglist} ${BALLGOWNLOC}/panther/output/${basename}_panther_mapping.csv ${PHENODATA} ${BALLGOWNLOC}/panther/output/${basename} ${BALLGOWNLOC}
     done
     
     cd ${WRKDIR}
