@@ -418,35 +418,31 @@ for ((j=0; j<="${#setnames[@]}"-1; j++ )); do
     fi
 
     # for each DEG list and reference list...
+    
+    # PantherScore won't work unless the working directory is the directory that contains PantherScore and the program's lib folder
+    cd /Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/panther/pantherScore2.2
 
+    # for each named protein, get the NCBI Protein database sequence and add it to a FASTA file
     python3 ${UNIPROTFASTA} ${BALLGOWNLOC}/panther/tome_ncbi_list.csv ${BALLGOWNLOC}/panther/tome_fasta.fa "" ${UNIPROTDIR}/${setname}_tome_blastx_results_readable.csv
-    perl ${PANTHERSCORE} -l /Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/panther/lib/ -D B -V -i ${BALLGOWNLOC}/panther/tome_fasta.fa -o ${BALLGOWNLOC}/panther/output/tome_panther_mapping.txt -n -s
+    # score FASTA file against PANTHER HMMs to map to PANTHER IDs
+    perl ${PANTHERSCORE} -l ${PANTHERLIBDIR} -D B -V -i ${BALLGOWNLOC}/panther/tome_fasta.fa -o ${BALLGOWNLOC}/panther/output/tome_panther_mapping.txt -n -s
 
     for deglist in ${BALLGOWNLOC}/bg_output/named/*_expr.csv; do
         base=${deglist##*/}
         basename=${base%.csv}
         echo "Current list: ${basename}"
 
-        # map UniProt ID to "EMBL/GenBank/DDBJ CDS ID" (NCBI Protein accession.version) using downloadable tool from UniProt
-        # or query the online database
-        # query NCBI's EFetch
-        # assemble into FASTA file
-            # all done in Python3 script:
+        # for each named protein, get the NCBI Protein database sequence and add it to a FASTA file
         python3 ${UNIPROTFASTA} ${BALLGOWNLOC}/panther/${basename}_ncbi_list.csv ${BALLGOWNLOC}/panther/${basename}_fasta.fa "" ${deglist}
-        
-        # BLAST FASTA file against PANTHER HMM to map to PANTHER IDs
-            # see https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6519453/#BX2
-            ####################### may need to source the panther program
-            ####################### make sure shell script correctly calls perl
-            ####################### check that library location is correct
-          #perl ${PANTHERSCORE} -l /Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/panther/lib/ -D B -V -i ${BALLGOWNLOC}/panther/${basename}_fasta.fa -o ${BALLGOWNLOC}/panther/${basename}_panther_mapping.csv -n -s
-        perl ${PANTHERSCORE} -l /Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/panther/pantherScore2.2/lib -D B -V -i ${BALLGOWNLOC}/panther/${basename}_fasta.fa -o ${BALLGOWNLOC}/panther/${basename}_panther_mapping.csv -n -s
+        # score FASTA file against PANTHER HMMs to map to PANTHER IDs
+        perl ${PANTHERSCORE} -l ${PANTHERLIBDIR} -D B -V -i ${BALLGOWNLOC}/panther/${basename}_fasta.fa -o ${BALLGOWNLOC}/panther/${basename}_panther_mapping.csv -n -s
             # output is tab-delimited: sequence ID, panther acc, panther family/subfamily, HMM e-value, HMM bitscore, alignment range
         
         # map PANTHER IDs to fpkm tables
         Rscript ${PANTHERFPKM} ${deglist} ${BALLGOWNLOC}/panther/${basename}_panther_mapping.csv ${PHENODATA} ${BALLGOWNLOC}/panther/output/${basename} ${BALLGOWNLOC}
     done
-        
+    
+    cd ${WRKDIR}
     
 done
 
