@@ -58,6 +58,7 @@ PHENODATA="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/fv_sampling_data.
 BLASTDIR="/Applications/ncbi-blast-2.10.0+/bin"
 UNIPROTDIR="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/uniprot"
 RRNADIR="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/rRNA"
+PANTHERLIBDIR="/Volumes/RAID_5_data_arra/Todd/Thomas_Roehl_RNASeq/panther/panther_16_library/PantherScore_16.2" # download and extract any one of the .tgz files (all contain same data) from http://data.pantherdb.org/ftp/panther_library/current_release/
 
 TEMPLOC="$BASEDIR/tmpdirec" #this will be relative to the output directory
 
