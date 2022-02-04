@@ -83,7 +83,7 @@ print('Querying NCBI EFetch')
 
 # overwrite previous data in output files
 output_list_open = open(output_id_list_file_name, 'w')
-output_list_open.write('UniProtKB,NCBI_Protein\n')
+output_list_open.write('UniProt_id,NCBI_id\n')
 output_fasta_open = open(output_fasta_file_name, 'w')
 output_list_open.write('')
 
