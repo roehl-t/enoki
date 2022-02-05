@@ -12,8 +12,8 @@ args <- commandArgs(trailingOnly = T)
 #"all",
 #"all",
 #"all",
+#"F",
 #"~/R/Flammulina-velutipes/ballgown/bg_output_2022-01-01")
-average <- F
 
 data <- read.csv(args[1]) # FPKM data table
 pheno <- read.csv(args[2]) # the pheno data file for Ballgown
@@ -22,7 +22,13 @@ genes <- strsplit(args[4], ",", fixed = T)[[1]] # list of genes to subset separa
 samples <- strsplit(args[5], ",", fixed = T)[[1]] # list of samples or 3-letter sample groups (ex: sti) to subset separated by "," -- input "all" to keep all
 samples <- c(samples, c("gene_name", "organism_name", "UniProt_id", "X", "query_id", "protein_name", "newname"))
 organisms <- args[6] # names of organisms to subset separated by "," -- input "all" to keep all
-setwd(args[7]) # where to set the working directory
+averageT <- args[7] # containing T or t for TRUE
+if(grepl("t", averageT, ignore.case = T){
+    average <- T
+} else {
+    average <- F
+}
+setwd(args[8]) # where to set the working directory
 
 # create an output log
 zz <- file("heatmap_output_log.txt", open = "wt")
@@ -142,6 +148,7 @@ for(col in colnames(data)){
 datam <- as.matrix(data)
 
 # calculate plot size
+############## not working correctly
 minRowHeight <- 80/(2494*0.1)
 minFileHeight <- minRowHeight*(nrow(datam)*0.1)
 minColWidth <- 10/(23*1)

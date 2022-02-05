@@ -47,4 +47,4 @@ The main script for this pipeline is rnaseq_pipeline_merge.sh, a BASH shell scri
 
 expression_barplot.R can be used to manually create bar graphs of specific genes. Subsets can be created based on gene or phenotypic data. If you need to display expression patterns of more than 6 genes, consider using a heatmap instead. heatmap.R can be configured manually as well.
 
-PCA plots can be manually created after the pipeline is run by using manual controls in the rnaseq_ballgown.R file.
+Plots can be manually created after the pipeline is run by using manual controls in the rnaseq_ballgown.R file (for PCA plots, run part of the script), heatmap.R file (for heatmaps), or barplot.R (for bar graphs, not in pipeline).

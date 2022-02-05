@@ -281,6 +281,10 @@ results_genes <-  arrange(results_genes, pval)
 write.csv(results_transcripts, paste(cutoff, "_enoki_transcripts_results_by_", covname, ".csv", sep = ""), row.names=FALSE)
 write.csv(results_genes, paste(cutoff, "_enoki_genes_results_by_", covname, ".csv", sep = ""), row.names=FALSE)
 
+## Write transcriptome lists to /lists so they are automatically included in the pipeline (automates GO analysis)
+write(tmerge$t_name, file = paste("./lists/", cutoff, "_enoki_transcripts_results_by_", covname, ".txt", sep = ""), sep="\n")
+write(tmerge$t_name, file = paste("./lists/", cutoff, "_enoki_transcripts_results_by_", covname, ".txt", sep = ""), sep="\n")
+
 ## Filter for genes with q-val <0.05
 transcripts_q_lt_05 <- subset(results_transcripts, results_transcripts$qval <=0.05)
 genes_q_lt_05 <- subset(results_genes, results_genes$qval <=0.05)
@@ -336,26 +340,25 @@ write.csv(writetrans, paste(cutoff, "_enoki_transcripts_qlt05_results_by_", covn
 
 print("DE data written")
 
-## Plotting setup
-#tropical <- c('darkorange', 'dodgerblue', 'hotpink', 'limegreen', 'yellow')
-#palette(tropical)
+## Write expression data of entire transcriptome for later GO analysis
+gene <- gexpr(bg_enoki)
+gene <- data.frame(gene)
+colnames(gene) <- sub("FPKM.", "", colnames(gene))
+gene$id <- rownames(gene)
+genemerge <- merge(results_genes, gene, all.x = T, all.y = F)
+rownames(genemerge) <- genemerge$gene_id
+writegenes <- genemerge[,!(names(genemerge) %in% c("id", "feature", "pval", "qval", "gene_id"))]
+write.csv(writegenes, paste(cutoff, "_enoki_genes_results_by_", covname, "_expr.csv", sep = ""), row.names=T)
 
-## Plotting gene abundance distribution
-#fpkm <- texpr(bg_Dpoly, meas='FPKM')
-#fpkm <- log2(fpkm +1)
-#boxplot(fpkm, col=as.numeric(pheno_data$sex), las=2,ylab='log2(FPKM+1)')
+transcript <- texpr(bg_enoki)
+transcript <- data.frame(transcript)
+colnames(transcript) <- sub("FPKM.", "", colnames(transcript))
+transcript$t_id <- rownames(transcript)
+transmerge <- merge(results_transcripts, transcript, all.x = T, all.y = F)
+transmerge2 <- merge(transmerge, tfile, all.x = T, all.y = F)
+rownames(transmerge2) <- transmerge2$t_name
+writetrans <- transmerge2[,!(names(transmerge2) %in% c("t_id", "feature", "pval", "qval", "t_name"))]
+write.csv(writetrans, paste(cutoff, "_enoki_transcripts_results_by_", covname, "_expr.csv", sep = ""), row.names=T)
 
-## Plot individual transcripts
-#ballgown::transcriptNames(bg_Dpoly)[12]
-#plot(fpkm[12,] ~ pheno_data$sex, border=c(1,2),
-#     main=paste(ballgown::geneNames(bg_Dpoly)[12], ' : ',ballgown::transcriptNames(bg_Dpoly)[12]),
-#     pch=19, xlab="Sex", ylab='log2(FPKM+1)')
-#points(fpkm[12,] ~ jitter(as.numeric(pheno_data$sex)), col=as.numeric(pheno_data$sex))
-
-## Plot gene of transcript 1729
-#plotTranscripts(ballgown::geneIDs(bg_Dpoly)[1729], bg_Dpoly,
-#                main=c('Gene XIST in sample ERR188234'), sample=c('ERR188234'))
-
-## Plot average expression
-#plotMeans(ballgown::geneIDs(bg_Dpoly)[203], bg_Dpoly_filt, groupvar="sex", legend=FALSE)
+print("transcriptome expression data written")
 
