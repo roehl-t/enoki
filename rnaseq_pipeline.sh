@@ -360,17 +360,18 @@ for ((j=0; j<="${#setnames[@]}"-1; j++ )); do
     done
 
 
-    # BLAST transcriptome for PANTHER reference
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Query BLAST database with transcriptome (BLASTX)"
-    
-    $BLASTXAPP -query ${BALLGOWNLOC}/fv_transcriptome.fa \
-        -db ${UNIPROTDIR}/uniprot_agaricales \
-        -out ${UNIPROTDIR}/${setname}_tome_blastx_results.csv \
-        -evalue 1e-3 -num_threads ${NUMCPUS} \
-        -num_alignments 1 -outfmt "6 qseqid stitle sacc evalue pident bitscore length qstart qend sstart send"
-    
-    # extract infromation from UniProt stitle
-    Rscript ${FIXUNIPROT} ${UNIPROTDIR}/${setname}_tome_blastx_results.csv ${UNIPROTDIR}/${setname}_tome_blastx_results_readable.csv ${UNIPROTDIR}
+# should be done automatically by adding complete list of transcripts to ballgown/output/lists -- see rnaseq_ballgown
+#    # BLAST transcriptome for PANTHER reference
+#    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Query BLAST database with transcriptome (BLASTX)"
+#    
+#    $BLASTXAPP -query ${BALLGOWNLOC}/fv_transcriptome.fa \
+#        -db ${UNIPROTDIR}/uniprot_agaricales \
+#        -out ${UNIPROTDIR}/${setname}_tome_blastx_results.csv \
+#        -evalue 1e-3 -num_threads ${NUMCPUS} \
+#        -num_alignments 1 -outfmt "6 qseqid stitle sacc evalue pident bitscore length qstart qend sstart send"
+#    
+#    # extract infromation from UniProt stitle
+#    Rscript ${FIXUNIPROT} ${UNIPROTDIR}/${setname}_tome_blastx_results.csv ${UNIPROTDIR}/${setname}_tome_blastx_results_readable.csv ${UNIPROTDIR}
 
 
      ## generate heat maps
@@ -420,7 +421,7 @@ for ((j=0; j<="${#setnames[@]}"-1; j++ )); do
     # for each DEG list and reference list...
     
     # PantherScore won't work unless the working directory is the directory that contains PantherScore and the program's lib folder
-    cd /Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/panther/pantherScore2.2
+    cd ${PANTHERSCORE%/*}
 
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Converting UniProtKB IDs to FASTA..."
     # for each named protein, get the NCBI Protein database sequence and add it to a FASTA file
@@ -444,7 +445,10 @@ for ((j=0; j<="${#setnames[@]}"-1; j++ )); do
         
         # map PANTHER IDs to fpkm tables
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Matching PANTHER IDs to FPKM tables..."
-        Rscript ${PANTHERFPKM} ${deglist} ${BALLGOWNLOC}/panther/output/${basename}_panther_mapping.csv ${PHENODATA} ${BALLGOWNLOC}/panther/output/${basename} ${BALLGOWNLOC}
+        if [ ! -f ${BALLGOWNLOC}/panther/output/${basename} ]; then
+            mkdir ${BALLGOWNLOC}/panther/output/${basename}
+        fi
+        Rscript ${PANTHERFPKM} ${deglist} ${BALLGOWNLOC}/panther/output/${basename}_panther_mapping.csv ${BALLGOWNLOC}/panther/${basename}_ncbi_list.csv ${PHENODATA} "ROEHL,myc,sti,pil,gil,you,pri,cul,nor" ${basename}_panther_mapping ${BALLGOWNLOC}/panther/output/${basename}
     done
     
     cd ${WRKDIR}
