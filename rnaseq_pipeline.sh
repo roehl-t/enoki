@@ -114,8 +114,16 @@ done
 
 export PATH="$PATH:${BLASTDIR}"
 
-# main script block
-mojo() {
+
+
+# initial QC block
+initqc() {
+
+}
+
+
+# initial sample processing
+initproc() {
 
 echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> START: " $0 $SCRIPTARGS
 touch ${ALIGNLOC}/mergelist.txt
@@ -165,6 +173,12 @@ for ((i=0; i<=${#reads1[@]}-1; i++ )); do
          # -m kept at default of 0.01
     fi
 done
+}
+
+
+
+# analysis and visualization
+mojo() {
 
 ## run rest of pipeline on various sample sets
 setnames=("all" "300" "5k" "culnor" "priyou")
@@ -458,4 +472,27 @@ done
 echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> DONE."
 } #pipeline end
 
+
+
+# pipeline with file management and log checking
+
+# check for previous log file - if found, ask user whether to start anew and overwrite or to skip completed files
+
+# if not found, create local input and output folders
+
+# (if skip) check if initial QC was previously completed - if so, skip initial QC
+# do initial QC (if skip, skip completed files)
+# copy needed files to input folder
+# move output files/directories to destination directory
+
+# (if skip) check if initial analysis was previously completed - if so, skip inital analysis
+# do initial analysis (if skip, skip completed files)
+# empty input folder
+# copy needed files to input folder
+# move output files/directories to destination directory
+
+# for each data subset...
+    # (if skip) check if initial analysis was previously completed - if so, skip inital analysis
+    # run analysis pipeline (if skip, skip completed files)
 mojo 2>&1 | tee $LOGFILE
+    # move output files/directories to destination directory
