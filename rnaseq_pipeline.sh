@@ -19,165 +19,161 @@ current working directory or, if provided, in the given <output_dir>
 EOF
 }
 
-OUTDIR="./output"
-if [[ "$1" ]]; then
- if [[ "$1" == "-h" || "$1" == "--help" ]]; then
-  usage
-  exit 1
- fi
- OUTDIR=$1
-fi
-
-## load variables
-if [[ ! -f ./rnaseq_pipeline.config.sh ]]; then
- usage
- echo "Error: configuration file (rnaseq_pipeline.config.sh) missing!"
- exit 1
-fi
-
-source ./rnaseq_pipeline.config.sh
-WRKDIR=$(pwd -P)
-errprog=""
-if [[ ! -x $SAMTOOLS ]]; then
-    errprog="samtools"
-fi
-if [[ ! -x $HISAT2 ]]; then
-    errprog="hisat2"
-fi
-if [[ ! -x $STRINGTIE ]]; then
-    errprog="stringtie"
-fi
-if [[ ! -x $BLASTNAPP ]]; then
-    errprog="BLASTN"
-fi
-if [[ ! -x $BLASTXAPP ]]; then
-    errprog="BLASTX"
-fi
-if [[ ! -f $BALLGOWN ]]; then
-    errprog="ballgown"
-fi
-if [[ ! -f $MATCHGENES ]]; then
-    errprog="python MSTRNG/gene matching"
-fi
-if [[ ! -f $NAMEGENES ]]; then
-    errprog="R gene name matching"
-fi
-if [[ ! -f $REMOVERRNA ]]; then
-    errprog="R rRNA removal"
-fi
-if [[ ! -f $FIXUNIPROT ]]; then
-    errprog="R UniProt BLAST rewriting"
-fi
-if [[ ! -f $HEATMAP ]]; then
-    errprog="R heat map"
-fi
-if [[ ! -f $UNIPROTFASTA ]]; then
-    errprog="Python3 Uniprot to FASTA conversion"
-fi
-if [[ ! -f $PANTHERSCORE ]]; then
-    errprog="PANTHER HMM scoring"
-fi
-if [[ ! -f $PANTHERFPKM ]]; then
-    errprog="R PANTHER to FPKM mapping"
-fi
 
 
-
-if [[ "$errprog" ]]; then    
-  echo "ERROR: $errprog program not found or not executable; please edit the configuration script."
-  exit 1
-fi
-
-#determine samtools version
-newsamtools=$( ($SAMTOOLS 2>&1) | grep 'Version: 1\.')
-
-set -e
-#set -x
-
-if [[ $OUTDIR != "." ]]; then
-  mkdir -p $OUTDIR
-  cd $OUTDIR
-fi
-
-SCRIPTARGS="$@"
-ALIGNLOC=./hisat2
-BALLGOWNLOC=${OUTDIR}/ballgown
-BALLGOWNLOC1=${BALLGOWNLOC}
-
-LOGFILE=./run.log
-
-for d in "$TEMPLOC" "$ALIGNLOC" "$BALLGOWNLOC" ; do
- if [ ! -d $d ]; then
-    mkdir -p $d
- fi
-done
-
-export PATH="$PATH:${BLASTDIR}"
+#### METHODS DECLARATIONS
 
 
+### check programs required for each function block
+    # when used, add an argument for block number
+chkprog() {
 
-# initial QC block
+    errprog=""
+    
+    # programs for first block
+    if [[ $1 == 1 ]]; then
+
+        if [[ ! -x $FASTQC ]]; then
+            errprog="FastQC"
+        fi
+        if [[ ! -x $FQTRIM ]]; then
+            errprog="FQTrim"
+        fi
+        if [[ ! -f $TRIMMOMATIC ]]; then
+            errprog="Trimmomatic"
+        fi
+        if [[ ! -x $INTERLEAVE ]]; then
+            errprog="Interleave Pairs"
+        fi
+    fi
+    
+    # programs for second block
+    if [[ $1 == 2 ]]; then
+        if [[ ! -x $SAMTOOLS ]]; then
+            errprog="samtools"
+        else
+            #determine samtools version
+            newsamtools=$( ($SAMTOOLS 2>&1) | grep 'Version: 1\.')
+        fi
+        if [[ ! -x $HISAT2 ]]; then
+            errprog="hisat2"
+        fi
+        if [[ ! -x $STRINGTIE ]]; then
+            errprog="stringtie"
+        fi
+    fi
+    
+    # programs for third block
+    if [[ $1 == 3 ]]; then
+
+        if [[ ! -x $STRINGTIE ]]; then
+            errprog="stringtie"
+        fi
+        if [[ ! -x $BLASTNAPP ]]; then
+            errprog="BLASTN"
+        fi
+        if [[ ! -x $BLASTXAPP ]]; then
+            errprog="BLASTX"
+        fi
+        if [[ ! -f $BALLGOWN ]]; then
+            errprog="ballgown"
+        fi
+        if [[ ! -f $MATCHGENES ]]; then
+            errprog="python MSTRNG/gene matching"
+        fi
+        if [[ ! -f $NAMEGENES ]]; then
+            errprog="R gene name matching"
+        fi
+        if [[ ! -f $REMOVERRNA ]]; then
+            errprog="R rRNA removal"
+        fi
+        if [[ ! -f $FIXUNIPROT ]]; then
+            errprog="R UniProt BLAST rewriting"
+        fi
+        if [[ ! -f $HEATMAP ]]; then
+            errprog="R heat map"
+        fi
+        if [[ ! -f $UNIPROTFASTA ]]; then
+            errprog="Python3 Uniprot to FASTA conversion"
+        fi
+        if [[ ! -f $PANTHERSCORE ]]; then
+            errprog="PANTHER HMM scoring"
+        fi
+        if [[ ! -f $PANTHERFPKM ]]; then
+            errprog="R PANTHER to FPKM mapping"
+        fi
+    fi
+    
+    if [[ "$errprog" ]]; then    
+      echo "ERROR: $errprog program not found or not executable; please edit the configuration script."
+      exit 1
+    fi
+
+}
+
+
+### initial QC block
 initqc() {
 
 }
 
 
-# initial sample processing
+### initial sample processing
 initproc() {
 
-echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> START: " $0 $SCRIPTARGS
-touch ${ALIGNLOC}/mergelist.txt
-for ((i=0; i<=${#reads1[@]}-1; i++ )); do
-    sample="${reads1[$i]%%.*}"
-    #sample="${sample%_R1*}"
-    sample="${sample%_L001*}"
-    echo "Sample name: " ${sample}
-    
-    # in case of interruption, skip finished files
-    if [[ -f ${ALIGNLOC}/${sample}.gtf ]]; then
-        echo "${sample} complete in HISAT2 and StringTie. Skipping..."
-    else
-        
-        unpairedBoth=${FASTQLOC}/${unpaired1[$i]},${FASTQLOC}/${unpaired2[$i]},${FASTQLOC}/${unpaired3[$i]}
-        stime=`date +"%Y-%m-%d %H:%M:%S"`
-        echo "[$stime] Processing sample: $sample"
-        echo [$stime] "   * Alignment of reads to genome (HISAT2)"
-        $HISAT2 -p $NUMCPUS --dta -x ${GENOMEIDX} \
-         -1 ${FASTQLOC}/${reads1[$i]} \
-         -2 ${FASTQLOC}/${reads2[$i]} \
-         -S ${TEMPLOC}/${sample}.sam 2>${ALIGNLOC}/${sample}.alnstats \
-         -U ${unpairedBoth} \
-         --seed 12345 --un-gz ${BASEDIR}/unmapped \
-         --un-conc ${BASEDIR}/unmapped
-         #defaults kept for strandedness, alignment, and scoring options
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> START: " $0 $SCRIPTARGS
+    touch ${ALIGNLOC}/mergelist.txt
+    for ((i=0; i<=${#reads1[@]}-1; i++ )); do
+        sample="${reads1[$i]%%.*}"
+        #sample="${sample%_R1*}"
+        sample="${sample%_L001*}"
+        echo "Sample name: " ${sample}
 
-        echo [`date +"%Y-%m-%d %H:%M:%S"`] "   * Alignments conversion (SAMTools)"
-        if [[ "$newsamtools" ]]; then
-         $SAMTOOLS view -S -b ${TEMPLOC}/${sample}.sam | \
-          $SAMTOOLS sort -@ $NUMCPUS -o ${ALIGNLOC}/${sample}.bam -
+        # in case of interruption, skip finished files
+        if [[ -f ${ALIGNLOC}/${sample}.gtf ]]; then
+            echo "${sample} complete in HISAT2 and StringTie. Skipping..."
         else
-         $SAMTOOLS view -S -b ${TEMPLOC}/${sample}.sam | \
-          $SAMTOOLS sort -@ $NUMCPUS - ${ALIGNLOC}/${sample}
-        fi
-        $SAMTOOLS index ${ALIGNLOC}/${sample}.bam
-        #$SAMTOOLS flagstat ${ALIGNLOC}/${sample}.bam
-        
-        echo "..removing intermediate files"
-        rm ${TEMPLOC}/${sample}.sam
-        #rm ${TEMPLOC}/${sample}.unsorted.bam
 
-        echo [`date +"%Y-%m-%d %H:%M:%S"`] "   * Assemble transcripts (StringTie)"
-        $STRINGTIE -p $NUMCPUS -o ${ALIGNLOC}/${sample}.gtf \
-         -l ${sample} ${ALIGNLOC}/${sample}.bam \
-         -c 1.5
-         # -m kept at default of 0.01
-    fi
-done
+            unpairedBoth=${FASTQLOC}/${unpaired1[$i]},${FASTQLOC}/${unpaired2[$i]},${FASTQLOC}/${unpaired3[$i]}
+            stime=`date +"%Y-%m-%d %H:%M:%S"`
+            echo "[$stime] Processing sample: $sample"
+            echo [$stime] "   * Alignment of reads to genome (HISAT2)"
+            $HISAT2 -p $NUMCPUS --dta -x ${GENOMEIDX} \
+             -1 ${FASTQLOC}/${reads1[$i]} \
+             -2 ${FASTQLOC}/${reads2[$i]} \
+             -S ${TEMPLOC}/${sample}.sam 2>${ALIGNLOC}/${sample}.alnstats \
+             -U ${unpairedBoth} \
+             --seed 12345 --un-gz ${BASEDIR}/unmapped \
+             --un-conc ${BASEDIR}/unmapped
+             #defaults kept for strandedness, alignment, and scoring options
+
+            echo [`date +"%Y-%m-%d %H:%M:%S"`] "   * Alignments conversion (SAMTools)"
+            if [[ "$newsamtools" ]]; then
+             $SAMTOOLS view -S -b ${TEMPLOC}/${sample}.sam | \
+              $SAMTOOLS sort -@ $NUMCPUS -o ${ALIGNLOC}/${sample}.bam -
+            else
+             $SAMTOOLS view -S -b ${TEMPLOC}/${sample}.sam | \
+              $SAMTOOLS sort -@ $NUMCPUS - ${ALIGNLOC}/${sample}
+            fi
+            $SAMTOOLS index ${ALIGNLOC}/${sample}.bam
+            #$SAMTOOLS flagstat ${ALIGNLOC}/${sample}.bam
+
+            echo "..removing intermediate files"
+            rm ${TEMPLOC}/${sample}.sam
+            #rm ${TEMPLOC}/${sample}.unsorted.bam
+
+            echo [`date +"%Y-%m-%d %H:%M:%S"`] "   * Assemble transcripts (StringTie)"
+            $STRINGTIE -p $NUMCPUS -o ${ALIGNLOC}/${sample}.gtf \
+             -l ${sample} ${ALIGNLOC}/${sample}.bam \
+             -c 1.5
+             # -m kept at default of 0.01
+        fi
+    done
 }
 
 
 
-# analysis and visualization
+### analysis and visualization
 mojo() {
 
 ## run rest of pipeline on various sample sets
@@ -470,29 +466,98 @@ for ((j=0; j<="${#setnames[@]}"-1; j++ )); do
 done
 
 echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> DONE."
-} #pipeline end
+}
 
 
 
-# pipeline with file management and log checking
+#### PIPELINE PROCESSES
+
+# initial setup
+
+OUTDIR="./output"
+if [[ "$1" ]]; then
+ if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+  usage
+  exit 1
+ fi
+ OUTDIR=$1
+fi
+
+## load variables
+if [[ ! -f ./rnaseq_pipeline.config.sh ]]; then
+ usage
+ echo "Error: configuration file (rnaseq_pipeline.config.sh) missing!"
+ exit 1
+fi
+
+source ./rnaseq_pipeline.config.sh
+WRKDIR=$(pwd -P)
+
+set -e
+#set -x
+
+if [[ $OUTDIR != "." ]]; then
+  mkdir -p $OUTDIR
+  cd $OUTDIR
+fi
+
+SCRIPTARGS="$@"
+ALIGNLOC=./hisat2
+BALLGOWNLOC=${OUTDIR}/ballgown
+BALLGOWNLOC1=${BALLGOWNLOC}
+
+LOGFILE=./rnaseq_pipeline_run.log
+
+for d in "$TEMPLOC" "$ALIGNLOC" "$BALLGOWNLOC" ; do
+ if [ ! -d $d ]; then
+    mkdir -p $d
+ fi
+done
+
+export PATH="$PATH:${BLASTDIR}:${TRIMMOMATICADAPTERS}"
+
+
+
 
 # check for previous log file - if found, ask user whether to start anew and overwrite or to skip completed files
+if [[ -f ${LOGFILE} ]]; then
+    echo "Previous log file found. You can either resume from the log file or rerun the entire pipeline. Do you want to resume from the log? (Y/N)"
+    read resume
+    if [[ ${resume} == "Y" ]] || [[ ${resume} == "y" ]] || [[ ${resume} == "Yes" ]] || [[ ${resume} == "YES" ]] || [[ ${resume} == "yes" ]]; then
+        resume="Y"
+    else
+        resume="N"
+    fi
+fi
+
+################ if not resuming, overwrite previous or make new log file
+
 
 # if not found, create local input and output folders
 
+
+
+# check that required files are present for block 1
+chkprog 1
 # (if skip) check if initial QC was previously completed - if so, skip initial QC
 # do initial QC (if skip, skip completed files)
 # copy needed files to input folder
 # move output files/directories to destination directory
 
+# check that required files are present for block 2
+chkprog 2
 # (if skip) check if initial analysis was previously completed - if so, skip inital analysis
 # do initial analysis (if skip, skip completed files)
 # empty input folder
 # copy needed files to input folder
 # move output files/directories to destination directory
 
+# check that required files are present for block 3
+chkprog 3
 # for each data subset...
     # (if skip) check if initial analysis was previously completed - if so, skip inital analysis
     # run analysis pipeline (if skip, skip completed files)
-mojo 2>&1 | tee $LOGFILE
+mojo 2>&1 | tee -a $LOGFILE
     # move output files/directories to destination directory
+    
+echo "pipeline-complete"
