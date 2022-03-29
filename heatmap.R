@@ -148,7 +148,7 @@ for(col in colnames(data)){
 datam <- as.matrix(data)
 
 # calculate plot size
-############## not working correctly
+############## not working correctly -- this branch is dedicated to fixing the automatic resizing feature
 minRowHeight <- 80/(2494*0.1)
 minFileHeight <- minRowHeight*(nrow(datam)*0.1)
 minColWidth <- 10/(23*1)
