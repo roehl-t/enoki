@@ -61,7 +61,7 @@ BASEDIR="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq"
 TEMPLOC="$BASEDIR/tmpdirec" #this will be relative to the output directory
 ################################### temploc should be removed, but is referenced in rnaseq_pipeline.sh
 
-TRIMMOMATICADAPTERS="/Applications/Trimmomatic-0.38/adapters"
+TRIMMOMATICADAPTERS="/Applications/Trimmomatic-0.38/adapters/TruSeq3-PE-2.fa" # pick the file that has your adapters
 FASTQLOC="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/data/data_qc_done"
 GENOMEIDX="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/genome_assemblies_all_files/ncbi-genomes-2021-11-01/GCA_011800155.1_ASM1180015v1/fvIndex"
 PHENODATA="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/fv_sampling_data.csv"
