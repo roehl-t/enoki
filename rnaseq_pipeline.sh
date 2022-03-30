@@ -116,6 +116,47 @@ chkprog() {
 ### initial QC block
 initqc() {
     
+    
+    ## FASTQC analysis of raw files
+    
+    # add directory for fastqc output
+    if [[ ! -d ${WRKDIR}/fastqc ]]; then
+        mkdir ${WRKDIR}/fastqc
+    fi
+    # add subdirectory for raw file analysis
+    if [[ ! -d ${WRKDIR}/fastqc/raw ]]; then
+        mkdir ${WRKDIR}/fastqc/raw
+    fi
+        
+    ## generate FastQC reports from raw data
+    for seqfile in ${DATADIR}/*.fastq.gz; do
+        ${fastqc_app} -t ${NCPUS} -o ${WRKDIR}/fastqc/raw ${seqfile}
+    done
+    
+    
+    ## concatenate files from multiple runs
+        # need user to specify suffix pattern
+        # cat from data folder to local input folder
+    
+    
+    ## Adapter and 3' quality trimming using trimmomatic
+    
+    # add directory for trimmomatic output
+    if [[ ! -d ${WRKDIR}/trimmomatic ]]; then
+        mkdir ${WRKDIR}/trimmomatic
+    fi
+    
+    #cp ${trimmomatic_adapter_dir}/TruSeq3-PE-2.fa ./TruSeq3-PE-2.fa
+    echo "Adapter and 3' quality trimming using Trimmomatic..."
+    for filename in ${data_folder}/*_R1_001.fastq.gz; do
+         inBase=${filename##*/}
+         outBase=${inBase%.fastq.gz}
+         echo $inBase
+         echo $outBase
+
+         java -jar ${trimmomatic_app} PE -threads ${NCPUS} -trimlog trimmomatic_trimlog.txt -basein $filename -baseout ${WRKDIR}/trimmomatic/${outBase}.fq ILLUMINACLIP:${TRIMMOMATICADAPTERS}:2:30:10 SLIDINGWINDOW:4:20 MINLEN:50
+    done
+    
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> initqc-complete"
 }
 
