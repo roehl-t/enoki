@@ -9,8 +9,18 @@
 ## chrX_data.tar.gz file in the current directory, so all the input
 ## files can be found in a ./chrX_data sub-directory
 
+
+### add this file as an argument when running rnaseq_pipeline.sh
+
+# working directory -- where to put files that are being worked on currently
+WRKDIR=
+
+# final directory -- where the files should go for storage
+DESTDIR=
+
 #how many CPUs to use on the current machine?
 NUMCPUS=6
+
 
 #### Program paths ####
 #if these programs are not in any PATH directories, please edit accordingly:
@@ -46,6 +56,7 @@ PANTHERFPKM=/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/scripts/map_pant
 ## Optional base directory, if most of the input files have a common path
 BASEDIR="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq"
 TEMPLOC="$BASEDIR/tmpdirec" #this will be relative to the output directory
+################################### temploc should be removed, but is referenced in rnaseq_pipeline.sh
 
 TRIMMOMATICADAPTERS="/Applications/Trimmomatic-0.38/adapters"
 FASTQLOC="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/data/data_qc_done"
@@ -55,6 +66,7 @@ BLASTDIR="/Applications/ncbi-blast-2.10.0+/bin"
 UNIPROTDIR="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/uniprot"
 RRNADIR="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/rRNA"
 PANTHERLIBDIR="/Volumes/RAID_5_data_arra/Todd/Thomas_Roehl_RNASeq/panther/target4/famlib/rel/PANTHER16.0_altVersion/ascii/PANTHER16.0" # download and extract any one of the .tgz files (all contain same data) from http://data.pantherdb.org/ftp/panther_library/current_release/
+
 
 ## list of samples 
 ## (only paired reads, must follow _1.*/_2.* file naming convention)
@@ -66,6 +78,7 @@ unpaired1=("${reads1[@]/_pairs_fwd/_unpaired}")
 unpaired2=(${FASTQLOC}/*_1U.fqtrimmed.fq)
 unpaired2=("${unpaired2[@]##*/}")
 unpaired3=("${unpaired2[@]/_1U/_2U}")
+
 
 ## sample subset declarations
   # list samples you want to remove from analysis below
@@ -79,6 +92,7 @@ removelist3="-12 -14 -17 -21 -22 -29 -30 -31 -33 -34 -38 -39 -40 -42 -45 -48 -50
 removelist4="-10 -11 -13 -18-B -21 -25 -27 -28 -30 -31 -32 -34 -38 -39 -43 -44 -45 -48 -51 -52 -54-B -55 -56 -57"
 removelist5="-51 -48 -39 -12 -14 -15 -16 -17 -19 -20 -22 -23 -24 -26 -29 -33 -35 -36 -37 -40 -41 -42 -46 -47 -49 -50 -53"
 REMOVELISTS=("${removelist1}" "${removelist2}" "${removelist3}" "${removelist4}" "${removelist5}")
+
 
 ## list of data for BLAST
 uniprot_file="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/uniprot/uniprot_agaricales_taxonomy_5338.fasta"
