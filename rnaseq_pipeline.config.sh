@@ -68,13 +68,17 @@ unpaired2=("${unpaired2[@]##*/}")
 unpaired3=("${unpaired2[@]/_1U/_2U}")
 
 ## sample subset declarations
-setnames=("all" "300" "5k" "culnor" "priyou")
+  # list samples you want to remove from analysis below
+  # you can run the same analyses on different sets by creating a new removelist with and specifying all the samples to remove
+  # then, add the new removelist in quotes to the REMOVELISTS variable
+  # to identify and separate each set of files, add a unique name for each set in the SETNAMES variable
+SETNAMES=("all" "300" "5k" "culnor" "priyou")
 removelist1="-51 -48 -39"
 removelist2="-51 -50 -48 -45 -39 -21"
 removelist3="-12 -14 -17 -21 -22 -29 -30 -31 -33 -34 -38 -39 -40 -42 -45 -48 -50 -51 -52 -53 -56 -57"
 removelist4="-10 -11 -13 -18-B -21 -25 -27 -28 -30 -31 -32 -34 -38 -39 -43 -44 -45 -48 -51 -52 -54-B -55 -56 -57"
 removelist5="-51 -48 -39 -12 -14 -15 -16 -17 -19 -20 -22 -23 -24 -26 -29 -33 -35 -36 -37 -40 -41 -42 -46 -47 -49 -50 -53"
-removelists=("${removelist1}" "${removelist2}" "${removelist3}" "${removelist4}" "${removelist5}")
+REMOVELISTS=("${removelist1}" "${removelist2}" "${removelist3}" "${removelist4}" "${removelist5}")
 
 ## list of data for BLAST
 uniprot_file="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/uniprot/uniprot_agaricales_taxonomy_5338.fasta"
