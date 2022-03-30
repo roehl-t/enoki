@@ -24,6 +24,7 @@ EOF
 #### METHODS DECLARATIONS
 
 
+
 ### check programs required for each function block
     # when used, add an argument for block number
 chkprog() {
@@ -114,7 +115,8 @@ chkprog() {
 
 ### initial QC block
 initqc() {
-
+    
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> initqc-complete"
 }
 
 
@@ -169,6 +171,8 @@ initproc() {
              # -m kept at default of 0.01
         fi
     done
+    
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> initproc-complete"
 }
 
 
@@ -176,18 +180,8 @@ initproc() {
 ### analysis and visualization
 mojo() {
 
-## run rest of pipeline on various sample sets
-setnames=("all" "300" "5k" "culnor" "priyou")
-removelist1="-51 -48 -39"
-removelist2="-51 -50 -48 -45 -39 -21"
-removelist3="-12 -14 -17 -21 -22 -29 -30 -31 -33 -34 -38 -39 -40 -42 -45 -48 -50 -51 -52 -53 -56 -57"
-removelist4="-10 -11 -13 -18-B -21 -25 -27 -28 -30 -31 -32 -34 -38 -39 -43 -44 -45 -48 -51 -52 -54-B -55 -56 -57"
-removelist5="-51 -48 -39 -12 -14 -15 -16 -17 -19 -20 -22 -23 -24 -26 -29 -33 -35 -36 -37 -40 -41 -42 -46 -47 -49 -50 -53"
-removelists=("${removelist1}" "${removelist2}" "${removelist3}" "${removelist4}" "${removelist5}")
-
-for ((j=0; j<="${#setnames[@]}"-1; j++ )); do
-    setname=${setnames[j]}
-    removelist=${removelists[j]}
+    setname=$1
+    removelist=$2
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Beginning analysis of sample set ${setname}"
     
     # make folder and update BALLGOWNLOC
@@ -266,7 +260,7 @@ for ((j=0; j<="${#setnames[@]}"-1; j++ )); do
             basename=${table##*/}
             # restore original files -- do on every rerun
             if [[ -f ${direc}original_tables/${basename} ]]; then
-                cp ${direc}/original_tables/${basename} ${table}
+                cp ${direc}/original_tables/${basename} ${table}
             fi
             # save original files -- do on only first run
             if [[ ! -f ${direc}original_tables/${basename} ]]; then
@@ -463,35 +457,24 @@ for ((j=0; j<="${#setnames[@]}"-1; j++ )); do
     
     cd ${WRKDIR}
     
-done
-
-echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> DONE."
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}-mojo-complete"
 }
 
 
 
-#### PIPELINE PROCESSES
+#### PIPELINE PROCESS
+
+
 
 # initial setup
 
-OUTDIR="./output"
-if [[ "$1" ]]; then
- if [[ "$1" == "-h" || "$1" == "--help" ]]; then
-  usage
-  exit 1
- fi
- OUTDIR=$1
-fi
-
 ## load variables
 if [[ ! -f ./rnaseq_pipeline.config.sh ]]; then
- usage
- echo "Error: configuration file (rnaseq_pipeline.config.sh) missing!"
- exit 1
+    usage
+    echo "Error: configuration file (rnaseq_pipeline.config.sh) missing!"
+    exit 1
 fi
-
-source ./rnaseq_pipeline.config.sh
-WRKDIR=$(pwd -P)
+source $1
 
 set -e
 #set -x
@@ -520,44 +503,67 @@ export PATH="$PATH:${BLASTDIR}:${TRIMMOMATICADAPTERS}"
 
 
 # check for previous log file - if found, ask user whether to start anew and overwrite or to skip completed files
+resume="N"
 if [[ -f ${LOGFILE} ]]; then
-    echo "Previous log file found. You can either resume from the log file or rerun the entire pipeline. Do you want to resume from the log? (Y/N)"
-    read resume
-    if [[ ${resume} == "Y" ]] || [[ ${resume} == "y" ]] || [[ ${resume} == "Yes" ]] || [[ ${resume} == "YES" ]] || [[ ${resume} == "yes" ]]; then
-        resume="Y"
-    else
-        resume="N"
+    findend=grep -c "PIPELINE-COMPLETE" ${LOGFILE}
+    if [[ findend == 1 ]]; then
+        echo "Previous log file found. You can either resume from the log file or rerun the entire pipeline. Do you want to resume from the log? (Y/N)"
+        read resume
     fi
 fi
+if [[ ${resume} == "Y" ]] || [[ ${resume} == "y" ]] || [[ ${resume} == "Yes" ]] || [[ ${resume} == "YES" ]] || [[ ${resume} == "yes" ]]; then
+    resume="Y"
+else
+    resume="N"
+    # if not resuming, overwrite log file
+    echo "rnaseq_pipeline.sh log begins" > $LOGFILE
+fi
 
-################ if not resuming, overwrite previous or make new log file
 
 
-# if not found, create local input and output folders
+# create local input and output folders
+input=${WRKDIR}/input
+output=${WRKDIR}/output
+if [[ ! -d ${input} ]]; then
+    mkdir ${input}
+fi
+if [[ ! -d ${output} ]]; then
+    mkdir ${output}
+fi
 
 
 
 # check that required files are present for block 1
 chkprog 1
+
 # (if skip) check if initial QC was previously completed - if so, skip initial QC
 # do initial QC (if skip, skip completed files)
+initqc
 # copy needed files to input folder
 # move output files/directories to destination directory
+
+
 
 # check that required files are present for block 2
 chkprog 2
 # (if skip) check if initial analysis was previously completed - if so, skip inital analysis
 # do initial analysis (if skip, skip completed files)
+initproc
 # empty input folder
 # copy needed files to input folder
 # move output files/directories to destination directory
+
+
 
 # check that required files are present for block 3
 chkprog 3
 # for each data subset...
     # (if skip) check if initial analysis was previously completed - if so, skip inital analysis
     # run analysis pipeline (if skip, skip completed files)
-mojo 2>&1 | tee -a $LOGFILE
-    # move output files/directories to destination directory
-    
-echo "pipeline-complete"
+## run rest of pipeline on various sample sets
+for ((j=0; j<="${#SETNAMES[@]}"-1; j++ )); do
+    mojo ${setnames[j]} ${removelists[j]} 2>&1 | tee -a $LOGFILE
+done
+# move output files/directories to destination directory
+
+echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> PIPELINE-COMPLETE."
