@@ -12,6 +12,9 @@
 
 ### add this file as an argument when running rnaseq_pipeline.sh
 
+# data directory -- location of the .fastq.gz files
+DATADIR=
+
 # working directory -- where to put files that are being worked on currently
 WRKDIR=
 
