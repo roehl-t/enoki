@@ -469,22 +469,22 @@ mojo() {
 # initial setup
 
 ## load variables
-if [[ ! -f ./rnaseq_pipeline.config.sh ]]; then
+SCRIPTARGS="$@"
+if [[ ! -f ${SCRIPTARGS[1]} ]]; then
     usage
-    echo "Error: configuration file (rnaseq_pipeline.config.sh) missing!"
+    echo "Error: configuration file (rnaseq_pipeline.config.sh) missing or not included as argument in command line!"
     exit 1
+else
+    source ${SCRIPTARGS[1]}
 fi
-source $1
 
 set -e
-#set -x
 
 if [[ $OUTDIR != "." ]]; then
   mkdir -p $OUTDIR
   cd $OUTDIR
 fi
 
-SCRIPTARGS="$@"
 ALIGNLOC=./hisat2
 BALLGOWNLOC=${OUTDIR}/ballgown
 BALLGOWNLOC1=${BALLGOWNLOC}
@@ -512,6 +512,7 @@ if [[ -f ${LOGFILE} ]]; then
     fi
 fi
 if [[ ${resume} == "Y" ]] || [[ ${resume} == "y" ]] || [[ ${resume} == "Yes" ]] || [[ ${resume} == "YES" ]] || [[ ${resume} == "yes" ]]; then
+    # note: log file can be used as record of previous run because we append to the file so the previous record remains intact
     resume="Y"
 else
     resume="N"
