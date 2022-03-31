@@ -117,8 +117,11 @@ chkprog() {
 
 
 ### convenience method for emptying folders
+    # pass folder you want to empty as a parameter when calling this function
+    # specified folder will not be deleted, but all its contents will be removed
 emptydir() {
-    
+    folder=$1
+    rm -rf ${folder}/*
 }
 
 
