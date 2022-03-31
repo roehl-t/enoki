@@ -15,6 +15,10 @@
 # data directory -- location of the .fastq.gz files
 DATADIR=
 
+# sequencing batches -- if data was sequenced multiple times, so that each sample has multiple files for forward and reverse reads, they will need to be concatenated. Add the filename pattern that distinguishes each batch here.
+SEQBATCHES=("_001" "_002")
+# use this if there is only one batch of data: SEQBATCHES=("none")
+
 # working directory -- where to put files that are being worked on currently
 WRKDIR=
 
