@@ -31,7 +31,7 @@ chkprog() {
 
     errprog=""
     
-    # programs for first block
+    # programs for first block (initqc)
     if [[ $1 == 1 ]]; then
 
         if [[ ! -x $FASTQC ]]; then
@@ -48,7 +48,7 @@ chkprog() {
         fi
     fi
     
-    # programs for second block
+    # programs for second block (initproc)
     if [[ $1 == 2 ]]; then
         if [[ ! -x $SAMTOOLS ]]; then
             errprog="samtools"
@@ -64,7 +64,7 @@ chkprog() {
         fi
     fi
     
-    # programs for third block
+    # programs for third block (mojo)
     if [[ $1 == 3 ]]; then
 
         if [[ ! -x $STRINGTIE ]]; then
@@ -106,11 +106,21 @@ chkprog() {
     fi
     
     if [[ "$errprog" ]]; then    
-      echo "ERROR: $errprog program not found or not executable; please edit the configuration script."
-      exit 1
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ERROR: $errprog program not found or not executable; please edit the configuration script."
+        exit 1
+    else
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> All programs found."
     fi
 
 }
+
+
+
+### convenience method for emptying folders
+emptydir() {
+    
+}
+
 
 
 ### initial QC block
@@ -118,53 +128,208 @@ initqc() {
     
     
     ## FASTQC analysis of raw files
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Beginning initial quality control."
     
     # add directory for fastqc output
-    if [[ ! -d ${WRKDIR}/fastqc ]]; then
-        mkdir ${WRKDIR}/fastqc
+    if [[ ! -d ${output}/fastqc ]]; then
+        mkdir ${output}/fastqc
     fi
     # add subdirectory for raw file analysis
-    if [[ ! -d ${WRKDIR}/fastqc/raw ]]; then
-        mkdir ${WRKDIR}/fastqc/raw
+    if [[ ! -d ${output}/fastqc/raw ]]; then
+        mkdir ${output}/fastqc/raw
     fi
         
     ## generate FastQC reports from raw data
     for seqfile in ${DATADIR}/*.fastq.gz; do
-        ${fastqc_app} -t ${NCPUS} -o ${WRKDIR}/fastqc/raw ${seqfile}
+        ${fastqc_app} -t ${NCPUS} -o ${output}/fastqc/raw ${seqfile}
     done
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> raw_fastqc_complete."
     
     
-    ## concatenate files from multiple runs
-        # need user to specify suffix pattern
-        # cat from data folder to local input folder
+    ## concatenate files from multiple runs if needed
+    newdatadir=${DATADIR}
+    if [[ ${#SEQBATCHES[@]} > 1 ]]; then
+        
+        # create new folder for concatenation
+        newdatadir=${output}/concatenate
+        if [[ ! -d ${newdatadir} ]]; then
+            mkdir ${newdatadir}
+        fi
+        
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Concatenating files by sample (preserving forward/reverse)..."
+        
+        for seqfile in ${DATADIR}/*${SEQBATCHES[0]}*.fastq.gz; do
+            # remove 0th seq batch pattern to create the base name for the concatenated file
+            nameending=${seqfile##*/}
+            basename=${nameending/"${SEQBATCHES[0]}"/}
+            echo ${basename}
+            
+            for (i = 0; i < ${#SEQBATCHES[@]}; i++); do
+                # find 0th seq batch pattern and replace with ith seq batch pattern to retrieve next file in the sample, then append to concatenation file
+                nextfile=${seqfile/"${SEQBATCHES[0]}"/"${SEQBATCHES[i]}"}
+                cat ${nextfile} >> ${newdatadir}/${basename}
+            done
+        done
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> concatenation_complete."
+    fi
     
     
     ## Adapter and 3' quality trimming using trimmomatic
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Adapter and 3' quality trimming using Trimmomatic..."
     
     # add directory for trimmomatic output
-    if [[ ! -d ${WRKDIR}/trimmomatic ]]; then
-        mkdir ${WRKDIR}/trimmomatic
+    if [[ ! -d ${output}/trimmomatic ]]; then
+        mkdir ${output}/trimmomatic
     fi
     
+    # I don't know why the following line was included -- test to see if this section works without copying the files into the working directory
     #cp ${trimmomatic_adapter_dir}/TruSeq3-PE-2.fa ./TruSeq3-PE-2.fa
-    echo "Adapter and 3' quality trimming using Trimmomatic..."
-    for filename in ${data_folder}/*_R1_001.fastq.gz; do
-         inBase=${filename##*/}
-         outBase=${inBase%.fastq.gz}
-         echo $inBase
-         echo $outBase
+    for filename in ${newdatadir}/*${FWDREV[0]}*.fastq.gz; do
+         nameending=${filename##*/}
+         name=${nameending%.fastq.gz}
+         basename=${name/"${FWDREV[0]}"/}
+         echo ${basename}
 
-         java -jar ${trimmomatic_app} PE -threads ${NCPUS} -trimlog trimmomatic_trimlog.txt -basein $filename -baseout ${WRKDIR}/trimmomatic/${outBase}.fq ILLUMINACLIP:${TRIMMOMATICADAPTERS}:2:30:10 SLIDINGWINDOW:4:20 MINLEN:50
+         java -jar ${TRIMMOMATIC} PE -threads ${NCPUS} -trimlog ${LOGLOC}/trimmomatic_trimlog.txt -basein ${filename} -baseout ${output}/trimmomatic/${basename}.fq ILLUMINACLIP:${TRIMMOMATICADAPTERS}:2:30:10 SLIDINGWINDOW:4:20 MINLEN:50
+    done
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> trimmomatic_complete"
+    
+    
+    ## Remove low-complexity sequences using fqtrim
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Removing low-complexity sequences and poly-A/poly-T sequences using fqtrim..."
+    
+    # make fqtrim1 folder
+    if [[ ! -d ${output}/fqtrim1 ]]; then
+        mkdir ${output}/fqtrim1
+    fi
+
+    # trimmomatic outputs paired sequences as ./*_1P.fq and ./*_2P.fq
+    for file in ${output}/trimmomatic/*_1P.fq; do
+        readpair=$(echo $file,${file/_1P/_2P} | tr -d '\n')
+        echo ${readpair}
+        
+        ${FQTRIM} -l 30 -p ${NCPUS} -D -o fqtrimmed.fq --outdir ${output}/fqtrim1 -r ${LOGLOC}/fqtrimlog1p.txt ${readpair}
+    done
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> fqtrim_1p_complete"
+    
+    
+    ## incorporate unpaired sequences, if option is Y
+    if [[ ${USEUNPAIRED} == "Y" ]]; then
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Running fqtrim on unpaired reads..."
+        
+        # trimmomatic outputs unpaired sequences as ./*_1U.fq and ./*_2U.fq
+        for file in ${output}/trimmomatic/*U.fq; do
+            echo ${file}
+            
+            ${FQTRIM} -l 30 -p ${NCPUS} -D -o fqtrimmed.fq --outdir ${output}/fqtrim1 -r ${LOGLOC}/fqtrimlog1u.txt ${file}
+        done
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> fqtrim_1u_complete"
+    fi
+    
+    
+    ## run FastQC on trimmed reads
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Conducting FastQC quality check of processed reads..."
+    
+    # create folder for trimmed FastQC
+    if [[ ! -d ${output}/fastqc/trim1 ]]; then
+        mkdir ${output}/fastqc/trim1
+    fi
+
+    for seqfile in ${output}/fqtrim1/*.fqtrimmed.fq; do
+        ${FASTQC} -t ${NCPUS} -o ${output}/fastqc/trim1 ${seqfile}
+    done
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> trim1_fastqc_complete"
+    
+    
+    ## rerun fqtrim on paired sequences, but ignore pairs
+        # to preserve pair order, fqtrim will leave single-nucleotide sequences in the files
+        # rerunning fqtrim is required to remove these junk sequences
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Rerunning fqtrim on paired sequences..."
+    
+    # make new fqtrim output folder
+    if [[ ! -d ${output}/fqtrim2 ]]; then
+        mkdir ${output}/fqtrim2
+    fi
+    
+    # run fqtrim on paired sequences
+    for seqfile in ${output}/fqtrim1/*P.fqtrimmed.fq; do
+        echo ${seqfile}
+
+        ${FQTRIM} -l 30 -p ${NCPUS} -D -o 2.fq --outdir ${output}/fqtrim2 -r ${LOGLOC}/fqtrimlog2p.txt ${seqfile}
+    done
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> fqtrim_2p_complete"
+    
+    
+    ## run FastQC on retrimmed reads
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Conducting FastQC quality check of fqtrim reruns..."
+    
+    # create folder for rerun FastQC
+    if [[ ! -d ${output}/fastqc/trim2 ]]; then
+        mkdir ${output}/fastqc/trim2
+    fi
+
+    for seqfile in ${output}/fqtrim2/*.fq; do
+        ${FASTQC} -t ${NCPUS} -o ${output}/fastqc/trim2 ${seqfile}
+    done
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> trim1_fastqc_complete"
+    
+    
+    ## reorder paired sequences
+        # paired sequences need to be in the same order in each pair file for the next step
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Performing sequence pair matching..."
+    
+    # create folder for interleave step
+    if [[ ! -d ${output}/interleave ]]; then
+        mkdir ${output}/interleave
+    fi
+    
+    # copy over unpaired reads from fqtrim1
+    for seqfile in ${output}/fqtrim1/*U.fqtrimmed.fq; do
+        basename=${seqfile##*/}
+        echo ${basename}
+
+        cp ${seqfile} ${output}/interleave/${basename}
     done
     
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> initqc-complete"
+    # perform interleave
+    for file in ${output}/fqtrim2/*_1P.fqtrimmed.2.fq; do
+        reverse=$(echo ${file/_1P/_2P} | tr -d '\n')
+        basename=${file##*/}
+        base=${output}/interleave/${basename%_*}
+        
+        python3 ${INTERLEAVE} ${file} ${reverse} ${base}
+        # output files are ./*_out_pairs_fwd.fastq ./*_out_pairs_rev.fastq and ./*_out_unpaired.fastq
+    done
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> interleave_complete"
+    
+    
+    ## end of block file management
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> File Management..."
+    
+    # copy final files to local input folder
+    for file in ${output}/interleave/*; do
+        basename=${file##*/}
+        echo ${basename}
+        
+        cp ${file} ${input}/${basename}
+    done
+    
+    # move contents of output folder to destination folder
+    if [[ ! -d ${DESTDIR}/initqc ]]; then
+        mkdir ${DESTDIR}/initqc
+    fi
+    
+    mv ${output}/* ${DESTDIR}/initqc
+    
+    
+    
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> initqc_complete"
 }
 
 
 ### initial sample processing
 initproc() {
 
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> START: " $0 $SCRIPTARGS
     touch ${ALIGNLOC}/mergelist.txt
     for ((i=0; i<=${#reads1[@]}-1; i++ )); do
         sample="${reads1[$i]%%.*}"
@@ -213,7 +378,7 @@ initproc() {
         fi
     done
     
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> initproc-complete"
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> initproc_complete"
 }
 
 
@@ -498,7 +663,7 @@ mojo() {
     
     cd ${WRKDIR}
     
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}-mojo-complete"
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_mojo_complete"
 }
 
 
@@ -530,7 +695,7 @@ ALIGNLOC=./hisat2
 BALLGOWNLOC=${OUTDIR}/ballgown
 BALLGOWNLOC1=${BALLGOWNLOC}
 
-LOGFILE=./rnaseq_pipeline_run.log
+LOGFILE=${LOGLOC}/rnaseq_pipeline_run.log
 
 for d in "$TEMPLOC" "$ALIGNLOC" "$BALLGOWNLOC" ; do
  if [ ! -d $d ]; then
@@ -575,22 +740,26 @@ fi
 
 
 
+echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> START: " $0 $SCRIPTARGS
+
 # check that required files are present for block 1
+echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Checking programs for part 1..."
 chkprog 1
 
 # (if skip) check if initial QC was previously completed - if so, skip initial QC
 # do initial QC (if skip, skip completed files)
-initqc
+initqc 2>&1 | tee -a $LOGFILE
 # copy needed files to input folder
 # move output files/directories to destination directory
 
 
 
 # check that required files are present for block 2
+echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Checking programs for part 2..."
 chkprog 2
 # (if skip) check if initial analysis was previously completed - if so, skip inital analysis
 # do initial analysis (if skip, skip completed files)
-initproc
+initproc 2>&1 | tee -a $LOGFILE
 # empty input folder
 # copy needed files to input folder
 # move output files/directories to destination directory
@@ -598,6 +767,7 @@ initproc
 
 
 # check that required files are present for block 3
+echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Checking programs for part 3..."
 chkprog 3
 # for each data subset...
     # (if skip) check if initial analysis was previously completed - if so, skip inital analysis
