@@ -12,12 +12,15 @@
 
 ### add this file as an argument when running rnaseq_pipeline.sh
 
-# data directory -- location of the .fastq.gz files
+# data directory -- location of the .fastq.gz files. All data files should be in a single directory. Please begin with the .fastq.gz file format or edit rnaseq_pipeline.sh to match the one you have.
 DATADIR=
 
-# sequencing batches -- if data was sequenced multiple times, so that each sample has multiple files for forward and reverse reads, they will need to be concatenated. Add the filename pattern that distinguishes each batch here.
+# sequencing batches -- if data was sequenced multiple times (such that each sample has multiple files for forward and reverse reads) they will need to be concatenated. Add the filename pattern that distinguishes each batch here.
 SEQBATCHES=("_001" "_002")
 # use this if there is only one batch of data: SEQBATCHES=("none")
+
+# forward/reverse labels -- the filename patterns that distinguish forward and reverse samples, list the forward pattern first
+FWDREV=("_R1" "_R2")
 
 # working directory -- where to put files that are being worked on currently
 WRKDIR=
