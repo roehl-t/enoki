@@ -25,6 +25,29 @@ EOF
 
 
 
+### convenience method for emptying folders
+    # pass folder you want to empty as a parameter when calling this function
+    # specified folder will not be deleted, but all its contents will be removed
+emptydir() {
+    folder=$1
+    rm -rf ${folder}/*
+}
+
+
+
+### convenience method for checking the log
+    # pass paramater of the entry you want to check
+    # stores result as "T" or "F" in variable chkresult
+chklog() {
+    nmatch=$(grep -c $1 ${LOGFILE})
+    chkresult="F"
+    if [[ nmatch > 0 ]]; then
+        chkresult="T"
+    fi
+}
+
+
+
 ### check programs required for each function block
     # when used, add an argument for block number
 chkprog() {
@@ -112,16 +135,6 @@ chkprog() {
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> All programs found."
     fi
 
-}
-
-
-
-### convenience method for emptying folders
-    # pass folder you want to empty as a parameter when calling this function
-    # specified folder will not be deleted, but all its contents will be removed
-emptydir() {
-    folder=$1
-    rm -rf ${folder}/*
 }
 
 
@@ -325,9 +338,9 @@ initqc() {
     mv ${output}/* ${DESTDIR}/initqc
     
     
-    
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> initqc_complete"
 }
+
 
 
 ### initial sample processing
@@ -714,8 +727,8 @@ export PATH="$PATH:${BLASTDIR}:${TRIMMOMATICADAPTERS}"
 # check for previous log file - if found, ask user whether to start anew and overwrite or to skip completed files
 resume="N"
 if [[ -f ${LOGFILE} ]]; then
-    findend=grep -c "PIPELINE-COMPLETE" ${LOGFILE}
-    if [[ findend == 1 ]]; then
+    chklog "PIPELINE-COMPLETE"
+    if [[ ${chkresult} == "F" ]]; then
         echo "Previous log file found. You can either resume from the log file or rerun the entire pipeline. Do you want to resume from the log? (Y/N)"
         read resume
     fi
