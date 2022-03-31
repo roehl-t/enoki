@@ -10,7 +10,14 @@
 ## files can be found in a ./chrX_data sub-directory
 
 
-### add this file as an argument when running rnaseq_pipeline.sh
+
+######## add this file as an argument when running rnaseq_pipeline.sh ########
+
+
+#### User Options ####
+
+# location for all log files
+LOGLOC=
 
 # data directory -- location of the .fastq.gz files. All data files should be in a single directory. Please begin with the .fastq.gz file format or edit rnaseq_pipeline.sh to match the one you have.
 DATADIR=
@@ -21,6 +28,9 @@ SEQBATCHES=("_001" "_002")
 
 # forward/reverse labels -- the filename patterns that distinguish forward and reverse samples, list the forward pattern first
 FWDREV=("_R1" "_R2")
+
+# use unpaired reads? -- either Y to use the unpaired reads or N to ignore them
+USEUNPAIRED=Y
 
 # working directory -- where to put files that are being worked on currently
 WRKDIR=
