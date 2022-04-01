@@ -20,6 +20,22 @@ EOF
 }
 
 
+##### NOTE
+##### The following pattern is used to check the output log to see if specific events were completed and to skip the completed sections (if the user has opted to resume):
+
+#skip="N"
+#chklog "completion_text"
+#if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+#    skip="Y"
+#fi
+#if [[ ${skip} == "N" ]]; then
+#    do_normal_function
+#    echo "completion_text"
+#fi
+
+# to remove this feature, find and delete all instances of this pattern
+
+
 
 #### METHODS DECLARATIONS
 
@@ -144,198 +160,355 @@ initqc() {
     
     
     ## FASTQC analysis of raw files
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Beginning initial quality control."
-    
-    # add directory for fastqc output
-    if [[ ! -d ${output}/fastqc ]]; then
-        mkdir ${output}/fastqc
+    skip="N"
+    chklog "raw_fastqc_complete"
+    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+        skip="Y"
     fi
-    # add subdirectory for raw file analysis
-    if [[ ! -d ${output}/fastqc/raw ]]; then
-        mkdir ${output}/fastqc/raw
+    if [[ ${skip} == "N" ]]; then
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Beginning initial quality control."
+
+        # add directory for fastqc output
+        if [[ ! -d ${output}/fastqc ]]; then
+            mkdir ${output}/fastqc
+        fi
+        # add subdirectory for raw file analysis
+        if [[ ! -d ${output}/fastqc/raw ]]; then
+            mkdir ${output}/fastqc/raw
+        fi
+
+        ## generate FastQC reports from raw data
+        for seqfile in ${DATADIR}/*.fastq.gz; do
+            skip="N"
+            chklog "${output}/fastqc/raw/${seqfile##*/}"
+            if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+                skip="Y"
+            fi
+            if [[ ${skip} == "N" ]]; then
+                ${fastqc_app} -t ${NCPUS} -o ${output}/fastqc/raw ${seqfile}
+                echo ${output}/fastqc/raw/${seqfile##*/}
+            fi
+        done
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> raw_fastqc_complete."
     fi
-        
-    ## generate FastQC reports from raw data
-    for seqfile in ${DATADIR}/*.fastq.gz; do
-        ${fastqc_app} -t ${NCPUS} -o ${output}/fastqc/raw ${seqfile}
-    done
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> raw_fastqc_complete."
     
     
     ## concatenate files from multiple runs if needed
     newdatadir=${DATADIR}
     if [[ ${#SEQBATCHES[@]} > 1 ]]; then
-        
-        # create new folder for concatenation
         newdatadir=${output}/concatenate
-        if [[ ! -d ${newdatadir} ]]; then
-            mkdir ${newdatadir}
-        fi
-        
-        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Concatenating files by sample (preserving forward/reverse)..."
-        
-        for seqfile in ${DATADIR}/*${SEQBATCHES[0]}*.fastq.gz; do
-            # remove 0th seq batch pattern to create the base name for the concatenated file
-            nameending=${seqfile##*/}
-            basename=${nameending/"${SEQBATCHES[0]}"/}
-            echo ${basename}
-            
-            for (i = 0; i < ${#SEQBATCHES[@]}; i++); do
-                # find 0th seq batch pattern and replace with ith seq batch pattern to retrieve next file in the sample, then append to concatenation file
-                nextfile=${seqfile/"${SEQBATCHES[0]}"/"${SEQBATCHES[i]}"}
-                cat ${nextfile} >> ${newdatadir}/${basename}
+    fi
+    
+    skip="N"
+    chklog "concatenation_complete"
+    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+        skip="Y"
+    fi
+    if [[ ${skip} == "N" ]]; then
+        if [[ ${#SEQBATCHES[@]} > 1 ]]; then
+
+            # create new folder for concatenation
+            if [[ ! -d ${newdatadir} ]]; then
+                mkdir ${newdatadir}
+            fi
+
+            echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Concatenating files by sample (preserving forward/reverse)..."
+
+            for seqfile in ${DATADIR}/*${SEQBATCHES[0]}*.fastq.gz; do
+                # remove 0th seq batch pattern to create the base name for the concatenated file
+                nameending=${seqfile##*/}
+                basename=${nameending/"${SEQBATCHES[0]}"/}
+
+                skip="N"
+                chklog "${newdatadir}/${basename}"
+                if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+                    skip="Y"
+                fi
+                if [[ ${skip} == "N" ]]; then
+                    for (i = 0; i < ${#SEQBATCHES[@]}; i++); do
+                        # find 0th seq batch pattern and replace with ith seq batch pattern to retrieve next file in the sample, then append to concatenation file
+                        nextfile=${seqfile/"${SEQBATCHES[0]}"/"${SEQBATCHES[i]}"}
+                        cat ${nextfile} >> ${newdatadir}/${basename}
+                    done
+                    
+                    echo ${newdatadir}/${basename}
+                fi
             done
-        done
-        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> concatenation_complete."
+            echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> concatenation_complete."
+        fi
     fi
     
     
     ## Adapter and 3' quality trimming using trimmomatic
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Adapter and 3' quality trimming using Trimmomatic..."
-    
-    # add directory for trimmomatic output
-    if [[ ! -d ${output}/trimmomatic ]]; then
-        mkdir ${output}/trimmomatic
+    skip="N"
+    chklog "trimmomatic_complete"
+    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+        skip="Y"
     fi
-    
-    # I don't know why the following line was included -- test to see if this section works without copying the files into the working directory
-    #cp ${trimmomatic_adapter_dir}/TruSeq3-PE-2.fa ./TruSeq3-PE-2.fa
-    for filename in ${newdatadir}/*${FWDREV[0]}*.fastq.gz; do
-         nameending=${filename##*/}
-         name=${nameending%.fastq.gz}
-         basename=${name/"${FWDREV[0]}"/}
-         echo ${basename}
+    if [[ ${skip} == "N" ]]; then
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Adapter and 3' quality trimming using Trimmomatic..."
 
-         java -jar ${TRIMMOMATIC} PE -threads ${NCPUS} -trimlog ${LOGLOC}/trimmomatic_trimlog.txt -basein ${filename} -baseout ${output}/trimmomatic/${basename}.fq ILLUMINACLIP:${TRIMMOMATICADAPTERS}:2:30:10 SLIDINGWINDOW:4:20 MINLEN:50
-    done
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> trimmomatic_complete"
+        # add directory for trimmomatic output
+        if [[ ! -d ${output}/trimmomatic ]]; then
+            mkdir ${output}/trimmomatic
+        fi
+
+        # I don't know why the following line was included -- test to see if this section works without copying the files into the working directory
+        #cp ${trimmomatic_adapter_dir}/TruSeq3-PE-2.fa ./TruSeq3-PE-2.fa
+        for filename in ${newdatadir}/*${FWDREV[0]}*.fastq.gz; do
+            nameending=${filename##*/}
+            name=${nameending%.fastq.gz}
+            basename=${name/"${FWDREV[0]}"/}
+
+            skip="N"
+            chklog "${output}/trimmomatic/${basename}_2U.fq"
+            if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+                skip="Y"
+            fi
+            if [[ ${skip} == "N" ]]; then
+                 java -jar ${TRIMMOMATIC} PE -threads ${NCPUS} -trimlog ${LOGLOC}/trimmomatic_trimlog.txt -basein ${filename} -baseout ${output}/trimmomatic/${basename}.fq ILLUMINACLIP:${TRIMMOMATICADAPTERS}:2:30:10 SLIDINGWINDOW:4:20 MINLEN:50
+                 
+                 echo ${output}/trimmomatic/${basename}_2U.fq
+             fi
+        done
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> trimmomatic_complete"
+    fi
     
     
     ## Remove low-complexity sequences using fqtrim
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Removing low-complexity sequences and poly-A/poly-T sequences using fqtrim..."
-    
-    # make fqtrim1 folder
-    if [[ ! -d ${output}/fqtrim1 ]]; then
-        mkdir ${output}/fqtrim1
+    skip="N"
+    chklog "fqtrim_1p_complete"
+    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+        skip="Y"
     fi
+    if [[ ${skip} == "N" ]]; then
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Removing low-complexity sequences and poly-A/poly-T sequences using fqtrim..."
 
-    # trimmomatic outputs paired sequences as ./*_1P.fq and ./*_2P.fq
-    for file in ${output}/trimmomatic/*_1P.fq; do
-        readpair=$(echo $file,${file/_1P/_2P} | tr -d '\n')
-        echo ${readpair}
-        
-        ${FQTRIM} -l 30 -p ${NCPUS} -D -o fqtrimmed.fq --outdir ${output}/fqtrim1 -r ${LOGLOC}/fqtrimlog1p.txt ${readpair}
-    done
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> fqtrim_1p_complete"
+        # make fqtrim1 folder
+        if [[ ! -d ${output}/fqtrim1 ]]; then
+            mkdir ${output}/fqtrim1
+        fi
+
+        # trimmomatic outputs paired sequences as ./*_1P.fq and ./*_2P.fq
+        for file in ${output}/trimmomatic/*_1P.fq; do
+            readpair=$(echo $file,${file/_1P/_2P} | tr -d '\n')
+
+            skip="N"
+            chklog "${readpair}"
+            if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+                skip="Y"
+            fi
+            if [[ ${skip} == "N" ]]; then
+            
+                ${FQTRIM} -l 30 -p ${NCPUS} -D -o fqtrimmed.fq --outdir ${output}/fqtrim1 -r ${LOGLOC}/fqtrimlog1p.txt ${readpair}
+                
+                echo ${readpair}
+            fi
+        done
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> fqtrim_1p_complete"
+    fi
     
     
     ## incorporate unpaired sequences, if option is Y
-    if [[ ${USEUNPAIRED} == "Y" ]]; then
-        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Running fqtrim on unpaired reads..."
-        
-        # trimmomatic outputs unpaired sequences as ./*_1U.fq and ./*_2U.fq
-        for file in ${output}/trimmomatic/*U.fq; do
-            echo ${file}
-            
-            ${FQTRIM} -l 30 -p ${NCPUS} -D -o fqtrimmed.fq --outdir ${output}/fqtrim1 -r ${LOGLOC}/fqtrimlog1u.txt ${file}
-        done
-        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> fqtrim_1u_complete"
+    skip="N"
+    chklog "fqtrim_1u_complete"
+    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+        skip="Y"
+    fi
+    if [[ ${skip} == "N" ]]; then
+        if [[ ${USEUNPAIRED} == "Y" ]]; then
+            echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Running fqtrim on unpaired reads..."
+
+            # trimmomatic outputs unpaired sequences as ./*_1U.fq and ./*_2U.fq
+            for file in ${output}/trimmomatic/*U.fq; do
+                skip="N"
+                chklog "${output}/fqtrim1/${file}"
+                if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+                    skip="Y"
+                fi
+                if [[ ${skip} == "N" ]]; then
+
+                    ${FQTRIM} -l 30 -p ${NCPUS} -D -o fqtrimmed.fq --outdir ${output}/fqtrim1 -r ${LOGLOC}/fqtrimlog1u.txt ${file}
+
+                    echo ${output}/fqtrim1/${file}
+                fi
+            done
+            echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> fqtrim_1u_complete"
+        fi
     fi
     
     
     ## run FastQC on trimmed reads
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Conducting FastQC quality check of processed reads..."
-    
-    # create folder for trimmed FastQC
-    if [[ ! -d ${output}/fastqc/trim1 ]]; then
-        mkdir ${output}/fastqc/trim1
+    skip="N"
+    chklog "trim1_fastqc_complete"
+    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+        skip="Y"
     fi
+    if [[ ${skip} == "N" ]]; then
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Conducting FastQC quality check of processed reads..."
 
-    for seqfile in ${output}/fqtrim1/*.fqtrimmed.fq; do
-        ${FASTQC} -t ${NCPUS} -o ${output}/fastqc/trim1 ${seqfile}
-    done
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> trim1_fastqc_complete"
+        # create folder for trimmed FastQC
+        if [[ ! -d ${output}/fastqc/trim1 ]]; then
+            mkdir ${output}/fastqc/trim1
+        fi
+
+        for seqfile in ${output}/fqtrim1/*.fqtrimmed.fq; do
+            skip="N"
+            chklog "${output}/fastqc/trim1/${seqfile##*/}"
+            if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+                skip="Y"
+            fi
+            if [[ ${skip} == "N" ]]; then
+            
+                ${FASTQC} -t ${NCPUS} -o ${output}/fastqc/trim1 ${seqfile}
+                echo ${output}/fastqc/trim1/${seqfile##*/}
+                
+            fi
+        done
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> trim1_fastqc_complete"
+    fi
     
     
     ## rerun fqtrim on paired sequences, but ignore pairs
         # to preserve pair order, fqtrim will leave single-nucleotide sequences in the files
         # rerunning fqtrim is required to remove these junk sequences
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Rerunning fqtrim on paired sequences..."
-    
-    # make new fqtrim output folder
-    if [[ ! -d ${output}/fqtrim2 ]]; then
-        mkdir ${output}/fqtrim2
+    skip="N"
+    chklog "fqtrim_2p_complete"
+    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+        skip="Y"
     fi
-    
-    # run fqtrim on paired sequences
-    for seqfile in ${output}/fqtrim1/*P.fqtrimmed.fq; do
-        echo ${seqfile}
+    if [[ ${skip} == "N" ]]; then
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Rerunning fqtrim on paired sequences..."
 
-        ${FQTRIM} -l 30 -p ${NCPUS} -D -o 2.fq --outdir ${output}/fqtrim2 -r ${LOGLOC}/fqtrimlog2p.txt ${seqfile}
-    done
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> fqtrim_2p_complete"
+        # make new fqtrim output folder
+        if [[ ! -d ${output}/fqtrim2 ]]; then
+            mkdir ${output}/fqtrim2
+        fi
+
+        # run fqtrim on paired sequences
+        for seqfile in ${output}/fqtrim1/*P.fqtrimmed.fq; do
+            skip="N"
+            chklog "${output}/fqtrim2/${seqfile##*/}"
+            if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+                skip="Y"
+            fi
+            if [[ ${skip} == "N" ]]; then
+
+                ${FQTRIM} -l 30 -p ${NCPUS} -D -o 2.fq --outdir ${output}/fqtrim2 -r ${LOGLOC}/fqtrimlog2p.txt ${seqfile}
+                echo ${output}/fqtrim2/${seqfile##*/}
+                
+            fi
+        done
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> fqtrim_2p_complete"
+    fi
     
     
     ## run FastQC on retrimmed reads
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Conducting FastQC quality check of fqtrim reruns..."
-    
-    # create folder for rerun FastQC
-    if [[ ! -d ${output}/fastqc/trim2 ]]; then
-        mkdir ${output}/fastqc/trim2
+    skip="N"
+    chklog "trim2_fastqc_complete"
+    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+        skip="Y"
     fi
+    if [[ ${skip} == "N" ]]; then
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Conducting FastQC quality check of fqtrim reruns..."
 
-    for seqfile in ${output}/fqtrim2/*.fq; do
-        ${FASTQC} -t ${NCPUS} -o ${output}/fastqc/trim2 ${seqfile}
-    done
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> trim1_fastqc_complete"
+        # create folder for rerun FastQC
+        if [[ ! -d ${output}/fastqc/trim2 ]]; then
+            mkdir ${output}/fastqc/trim2
+        fi
+
+        for seqfile in ${output}/fqtrim2/*.fq; do
+            skip="N"
+            chklog "${output}/fastqc/trim2/${seqfile##*/}"
+            if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+                skip="Y"
+            fi
+            if [[ ${skip} == "N" ]]; then
+            
+                ${FASTQC} -t ${NCPUS} -o ${output}/fastqc/trim2 ${seqfile}
+                echo ${output}/fastqc/trim2/${seqfile##*/}
+                
+            fi
+        done
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> trim2_fastqc_complete"
+    fi
     
     
     ## reorder paired sequences
         # paired sequences need to be in the same order in each pair file for the next step
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Performing sequence pair matching..."
-    
-    # create folder for interleave step
-    if [[ ! -d ${output}/interleave ]]; then
-        mkdir ${output}/interleave
+    skip="N"
+    chklog "interleave_complete"
+    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+        skip="Y"
     fi
-    
-    # copy over unpaired reads from fqtrim1
-    for seqfile in ${output}/fqtrim1/*U.fqtrimmed.fq; do
-        basename=${seqfile##*/}
-        echo ${basename}
+    if [[ ${skip} == "N" ]]; then
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Performing sequence pair matching..."
 
-        cp ${seqfile} ${output}/interleave/${basename}
-    done
-    
-    # perform interleave
-    for file in ${output}/fqtrim2/*_1P.fqtrimmed.2.fq; do
-        reverse=$(echo ${file/_1P/_2P} | tr -d '\n')
-        basename=${file##*/}
-        base=${output}/interleave/${basename%_*}
-        
-        python3 ${INTERLEAVE} ${file} ${reverse} ${base}
-        # output files are ./*_out_pairs_fwd.fastq ./*_out_pairs_rev.fastq and ./*_out_unpaired.fastq
-    done
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> interleave_complete"
+        # create folder for interleave step
+        if [[ ! -d ${output}/interleave ]]; then
+            mkdir ${output}/interleave
+        fi
+
+        # copy over unpaired reads from fqtrim1
+        for seqfile in ${output}/fqtrim1/*U.fqtrimmed.fq; do
+            basename=${seqfile##*/}
+            echo ${basename}
+
+            cp ${seqfile} ${output}/interleave/${basename}
+        done
+
+        # perform interleave
+        for file in ${output}/fqtrim2/*_1P.fqtrimmed.2.fq; do
+            reverse=$(echo ${file/_1P/_2P} | tr -d '\n')
+            basename=${file##*/}
+            base=${output}/interleave/${basename%_*}
+            
+            skip="N"
+            chklog "${output}/interleave/${base}_out_unpaired.fastq"
+            if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+                skip="Y"
+            fi
+            if [[ ${skip} == "N" ]]; then
+
+                python3 ${INTERLEAVE} ${file} ${reverse} ${base}
+                # output files are ./*_out_pairs_fwd.fastq ./*_out_pairs_rev.fastq and ./*_out_unpaired.fastq
+                echo ${output}/interleave/${base}_out_unpaired.fastq
+                
+            fi
+        done
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> interleave_complete"
+    fi
     
     
     ## end of block file management
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> File Management..."
-    
-    # copy final files to local input folder
-    for file in ${output}/interleave/*; do
-        basename=${file##*/}
-        echo ${basename}
-        
-        cp ${file} ${input}/${basename}
-    done
-    
-    # move contents of output folder to destination folder
-    if [[ ! -d ${DESTDIR}/initqc ]]; then
-        mkdir ${DESTDIR}/initqc
+    skip="N"
+    chklog "initqc_file_management_complete"
+    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+        skip="Y"
     fi
-    
-    mv ${output}/* ${DESTDIR}/initqc
+    if [[ ${skip} == "N" ]]; then
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> File Management..."
+
+        # copy final files to local input folder
+            # in case the process was interrupted after moving /interleave but before reaching completing file management, avoid errors by first checking to see if the /interleave folder is still in the output folder
+        if [[ -d ${output}/interleave ]]; then
+            for file in ${output}/interleave/*; do
+                basename=${file##*/}
+                echo ${basename}
+
+                cp ${file} ${input}/${basename}
+            done
+        fi
+
+        # move contents of output folder to destination folder
+        if [[ ! -d ${DESTDIR}/initqc ]]; then
+            mkdir ${DESTDIR}/initqc
+        fi
+
+        mv ${output}/* ${DESTDIR}/initqc
+        
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> initqc_file_management_complete"
+    fi
     
     
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> initqc_complete"
@@ -763,10 +936,17 @@ echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Checking programs for part 1..."
 chkprog 1
 
 # (if skip) check if initial QC was previously completed - if so, skip initial QC
-# do initial QC (if skip, skip completed files)
-initqc 2>&1 | tee -a $LOGFILE
-# copy needed files to input folder
-# move output files/directories to destination directory
+skip="N"
+chklog "initqc_complete"
+if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+    skip="Y"
+fi
+if [[ ${skip} == "N" ]]; then
+
+    # do initial QC
+    initqc 2>&1 | tee -a $LOGFILE
+    
+fi
 
 
 
