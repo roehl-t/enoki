@@ -653,6 +653,133 @@ initproc() {
 
 
 
+### automatically generate removelists based on user-specified cutoffs
+autogenerate_removelists() {
+    # create merge list
+    skip="N"
+    chklog "${setname}_transcripts_merged"
+    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+        skip="Y"
+    fi
+    if [[ ${skip} == "N" ]]; then
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Merge selected transcripts (StringTie)"
+        
+        # create file to hold list of files to merge
+        touch ${output}/mergelist.txt
+        ls -1 ${input}/*.gtf > ${output}/${setname}_mergelist.txt
+        
+        # remove lines from transcript list that match samples in the removelist
+        for removestr in ${removelist}; do
+            grep -v -- ${removestr} ${output}/${setname}_mergelist.txt > ${output}/temp.txt
+            mv ${output}/temp.txt ${output}/${setname}_mergelist.txt
+        done
+
+        $STRINGTIE --merge -p $NUMCPUS \
+            -o ${BALLGOWNLOC}/stringtie_merged.gtf ${output}/${setname}_mergelist.txt
+        
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> ${setname}_transcripts_merged"
+    fi
+
+    ## estimate transcript abundance
+    skip="N"
+    chklog "${setname}_abundance_estimation_complete"
+    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+        skip="Y"
+    fi
+    if [[ ${skip} == "N" ]]; then
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Estimate abundance for each sample (StringTie)"
+        
+        for ((i=0; i<=${#reads1[@]}-1; i++ )); do
+            sample="${reads1[$i]%%.*}"
+            dsample="${sample%_L001*}" ####################################### might not need to do this
+            sample="${sample%_L001*}" ######################################## might not need to do this
+            
+            skip="N"
+            chklog "${setname}_${sample}_abundance_estimated"
+            if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+                skip="Y"
+            fi
+            if [[ ${skip} == "N" ]]; then
+
+                # if the sample name matches anything in the current removelist, skip that sample
+                remove="F"
+                for removestr in ${removelist}; do
+                    if [[ "${sample}" == *"${removestr}"* ]]; then
+                        remove="T"
+                    fi
+                done
+                if [ "${remove}" == "F" ]; then
+                    if [ ! -d ${BALLGOWNLOC}/${dsample} ]; then
+                        mkdir -p ${BALLGOWNLOC}/${dsample}
+                    fi
+                    
+                    $STRINGTIE -e -B -p $NUMCPUS -G ${BALLGOWNLOC}/stringtie_merged.gtf \
+                    -o ${BALLGOWNLOC}/${dsample}/${dsample}.gtf ${ALIGNLOC}/${sample}.bam
+                    
+                    echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> ${setname}_${sample}_abundance_estimated"
+                fi
+            fi
+        done
+        
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> ${setname}_abundance_estimation_complete"
+    fi
+
+    # create transcript FASTA file
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Generate fasta transcript file from .gtf"
+    ## note: hard to find genome using index location, so whole path is typed out
+    $GFFREAD -w ${BALLGOWNLOC}/fv_transcriptome.fa -g /Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/genome_assemblies_all_files/ncbi-genomes-2021-11-01/GCA_011800155.1_ASM1180015v1/GCA_011800155.1_ASM1180015v1_genomic.fna ${BALLGOWNLOC}/stringtie_merged.gtf
+
+    ### BLAST against ribosomal database
+
+    # make rRNA database
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Create rRNA database (makeblastdb)"
+
+    $BLASTDIR/makeblastdb -in ${rrna_file} -out ${RRNADIR}/ncbi_rrna_fungi -dbtype nucl
+
+    # BLAST rRNA database
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Query rRNA database with transcroptome (BLASTN)"
+
+    $BLASTNAPP -query ${BALLGOWNLOC}/fv_transcriptome.fa \
+        -db ${RRNADIR}/ncbi_rrna_fungi \
+        -out ${RRNADIR}/blastn_results.csv \
+        -evalue 1e-6 -num_threads ${NUMCPUS} \
+        -num_alignments 1 -outfmt "6 qseqid stitle sacc evalue pident bitscore length qstart qend sstart send"
+
+    ## remove matched transcripts from ctab files
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Removing rRNA..."
+
+    # save a copy of the original tables in a new folder
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Save a copy of original expression tables"
+
+    for direc in ${BALLGOWNLOC}/ROEHL-FV-*/; do
+        for table in ${direc}*.ctab; do
+            if [[ ! -d ${direc}original_tables ]]; then
+                mkdir ${direc}original_tables
+            fi
+            basename=${table##*/}
+            # restore original files -- do on every rerun
+            if [[ -f ${direc}original_tables/${basename} ]]; then
+                cp ${direc}/original_tables/${basename} ${table}
+            fi
+            # save original files -- do on only first run
+            if [[ ! -f ${direc}original_tables/${basename} ]]; then
+                cp ${table} ${direc}original_tables/${basename}
+            fi
+        done
+    done
+
+    # use R script to remove rRNA and overwrite the .ctab files (leaving originals in subdirectories)
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Remove rRNA from expression tables (R)"
+
+    if [ ! -d ${OUTDIR}/R_logs/ ]; then
+        mkdir ${OUTDIR}/R_logs
+    fi
+
+    Rscript ${REMOVERRNA} ${RRNADIR}/blastn_results.csv ${BALLGOWNLOC} ${OUTDIR}
+
+}
+
+
 ### analysis and visualization
 mojo() {
 
@@ -660,19 +787,33 @@ mojo() {
     removelist=$2
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Beginning analysis of sample set ${setname}"
     
-    BALLGOWNLOC=${output}/ballgown # location for ballgown-specific file structures and data calculations
+    if [[ ! -d ${DESTDIR}/analysis ]]; then
+        mkdir ${DESTDIR}/analysis
+    fi
+    
+    destination=${DESTDIR}/analysis/${setname}
+    
     # after each major process is complete, do file management
+    
         # merge files, est abundance, create transcriptome
-            # copy tome and abundances to input
-            # move tome to destdir/products
-            # move rest to destdir/calculations/merge
+            # do in output/ballgown
+            # copy tome to input, leave ball
+            # move tome to destination/products
+            # move rest to destination/calculations/ballgown
+    BALLGOWNLOC=${output}/ballgown
+    ballgowndest=${destination}/calculations/ballgown
+    productdest=${destination}/products
+    
         # remove rrna
+            # do in output/rrna
             # copy adjusted abundance files to input
             # move all to destdir/calculations/rrna_removal
         # busco test
+            # do in output/busco
             # move busco output to destdir/products
             # move remaining to destdir/calculations/busco
         # ballgown
+            # do in output/ballgown
             # copy lists to input
             # move PCA plots to destdir/products/pca
         # proteome
@@ -685,43 +826,74 @@ mojo() {
             # move lists to destdir/products/go
             # move rest to destdir/calculations/panther
     
-    # create file to hold list of files to merge
-    touch ${output}/mergelist.txt
-
-    ## merge transcript file
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Merge selected transcripts (StringTie)"
-    ls -1 ${input}/*.gtf > ${output}/${setname}_mergelist.txt
+    # create merge list
+    skip="N"
+    chklog "${setname}_transcripts_merged"
+    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+        skip="Y"
+    fi
+    if [[ ${skip} == "N" ]]; then
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Merge selected transcripts (StringTie)"
         
-    # remove lines from transcript list that match samples in the removelist
-    for removestr in ${removelist}; do
-        grep -v -- ${removestr} ${output}/${setname}_mergelist.txt > ${output}/temp.txt
-        mv ${output}/temp.txt ${output}/${setname}_mergelist.txt
-    done
+        # create file to hold list of files to merge
+        touch ${output}/mergelist.txt
+        ls -1 ${input}/*.gtf > ${output}/${setname}_mergelist.txt
+        
+        # remove lines from transcript list that match samples in the removelist
+        for removestr in ${removelist}; do
+            grep -v -- ${removestr} ${output}/${setname}_mergelist.txt > ${output}/temp.txt
+            mv ${output}/temp.txt ${output}/${setname}_mergelist.txt
+        done
 
-    $STRINGTIE --merge -p $NUMCPUS \
-        -o ${BALLGOWNLOC}/stringtie_merged.gtf ${output}/${setname}_mergelist.txt
+        $STRINGTIE --merge -p $NUMCPUS \
+            -o ${BALLGOWNLOC}/stringtie_merged.gtf ${output}/${setname}_mergelist.txt
+        
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> ${setname}_transcripts_merged"
+    fi
 
     ## estimate transcript abundance
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Estimate abundance for each sample (StringTie)"
-    for ((i=0; i<=${#reads1[@]}-1; i++ )); do
-        sample="${reads1[$i]%%.*}"
-        dsample="${sample%_L001*}"
-        sample="${sample%_L001*}"
-        # if the sample name matches anything in the current removelist, skip that sample
-        remove="F"
-        for removestr in ${removelist}; do
-            if [[ "${sample}" == *"${removestr}"* ]]; then
-                remove="T"
+    skip="N"
+    chklog "${setname}_abundance_estimation_complete"
+    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+        skip="Y"
+    fi
+    if [[ ${skip} == "N" ]]; then
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Estimate abundance for each sample (StringTie)"
+        
+        for ((i=0; i<=${#reads1[@]}-1; i++ )); do
+            sample="${reads1[$i]%%.*}"
+            dsample="${sample%_L001*}" ####################################### might not need to do this
+            sample="${sample%_L001*}" ######################################## might not need to do this
+            
+            skip="N"
+            chklog "${setname}_${sample}_abundance_estimated"
+            if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+                skip="Y"
+            fi
+            if [[ ${skip} == "N" ]]; then
+
+                # if the sample name matches anything in the current removelist, skip that sample
+                remove="F"
+                for removestr in ${removelist}; do
+                    if [[ "${sample}" == *"${removestr}"* ]]; then
+                        remove="T"
+                    fi
+                done
+                if [ "${remove}" == "F" ]; then
+                    if [ ! -d ${BALLGOWNLOC}/${dsample} ]; then
+                        mkdir -p ${BALLGOWNLOC}/${dsample}
+                    fi
+                    
+                    $STRINGTIE -e -B -p $NUMCPUS -G ${BALLGOWNLOC}/stringtie_merged.gtf \
+                    -o ${BALLGOWNLOC}/${dsample}/${dsample}.gtf ${ALIGNLOC}/${sample}.bam
+                    
+                    echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> ${setname}_${sample}_abundance_estimated"
+                fi
             fi
         done
-        if [ "${remove}" == "F" ]; then
-            if [ ! -d ${BALLGOWNLOC}/${dsample} ]; then
-                mkdir -p ${BALLGOWNLOC}/${dsample}
-            fi
-            $STRINGTIE -e -B -p $NUMCPUS -G ${BALLGOWNLOC}/stringtie_merged.gtf \
-            -o ${BALLGOWNLOC}/${dsample}/${dsample}.gtf ${ALIGNLOC}/${sample}.bam
-        fi
-    done
+        
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> ${setname}_abundance_estimation_complete"
+    fi
 
     # create transcript FASTA file
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Generate fasta transcript file from .gtf"
