@@ -5,13 +5,8 @@
 ##
 ## Place this script in a working directory and edit it accordingly.
 ##
-## The default configuration assumes that the user unpacked the 
-## chrX_data.tar.gz file in the current directory, so all the input
-## files can be found in a ./chrX_data sub-directory
-
-
-
-######## add this file as an argument when running rnaseq_pipeline.sh ########
+## To run the pipeline, run the rnaseq_pipeline.sh script with this file as the first argument
+##    ex: username:~$ bash ./rnaseq_pipeline.sh ./rnaseq_pipeline.config.sh
 
 
 #### User Options ####
@@ -45,10 +40,10 @@ NUMCPUS=6
 #### Program paths ####
 #if these programs are not in any PATH directories, please edit accordingly:
 
+## paths for programs not in enoki
 FASTQC=/Applications/FastQC.app/Contents/MacOS/fastqc
 FQTRIM=/Applications/fqtrim-0.9.7/fqtrim
 TRIMMOMATIC=/Applications/Trimmomatic-0.38/trimmomatic-0.38.jar
-INTERLEAVE=/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/data/data_concat/fqtrim_output/interleave_pairs.py
 HISAT2=/Applications/hisat2-2.2.1/hisat2
 STRINGTIE=/Applications/stringtie-1.3.6.OSX_x86_64/stringtie
 SAMTOOLS=/Applications/samtools-1.8/samtools
@@ -56,13 +51,16 @@ BALLGOWN=/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/scripts/rnaseq_ball
 GFFREAD=/Applications/gffread-0.12.7.OSX_x86_64/gffread
 BLASTXAPP=/Applications/ncbi-blast-2.10.0+/bin/blastx
 BLASTNAPP=/Applications/ncbi-blast-2.10.0+/bin/blastn
+PANTHERSCORE=/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/panther/pantherScore2.2/pantherScore2.2.pl
+
+## paths for programs included in enoki
+INTERLEAVE=/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/data/data_concat/fqtrim_output/interleave_pairs.py
 MATCHGENES=/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/scripts/match_mstrng_to_gene.py
 NAMEGENES=/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/scripts/name_genes2.R
 REMOVERRNA=/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/scripts/remove_rRNA.R
 FIXUNIPROT=/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/scripts/extract_uniprot_title_info.R
 HEATMAP=/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/scripts/heatmap.R
 UNIPROTFASTA=/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/scripts/map_UniProtKB_FASTA.py
-PANTHERSCORE=/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/panther/pantherScore2.2/pantherScore2.2.pl
 PANTHERFPKM=/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/scripts/map_panther_fpkm.R
 
 
@@ -72,11 +70,6 @@ PANTHERFPKM=/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/scripts/map_pant
 ## relative to the  chosen output directory (which is generally the 
 ## working directory where this script is, unless the optional <output_dir>
 ## parameter is provided to the main pipeline script)
-
-## Optional base directory, if most of the input files have a common path
-BASEDIR="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq"
-TEMPLOC="$BASEDIR/tmpdirec" #this will be relative to the output directory
-################################### temploc should be removed, but is referenced in rnaseq_pipeline.sh
 
 TRIMMOMATICADAPTERS="/Applications/Trimmomatic-0.38/adapters/TruSeq3-PE-2.fa" # pick the file that has your adapters
 FASTQLOC="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/data/data_qc_done"
@@ -88,11 +81,19 @@ RRNADIR="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/rRNA"
 PANTHERLIBDIR="/Volumes/RAID_5_data_arra/Todd/Thomas_Roehl_RNASeq/panther/target4/famlib/rel/PANTHER16.0_altVersion/ascii/PANTHER16.0" # download and extract any one of the .tgz files (all contain same data) from http://data.pantherdb.org/ftp/panther_library/current_release/
 
 
+## list of data for BLAST
+uniprot_file="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/uniprot/uniprot_agaricales_taxonomy_5338.fasta"
+rrna_file="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/rRNA/fungi_18S_28S_ITS.fna"
+
+
 ## sample subset declarations
   # list samples you want to remove from analysis below
-  # you can run the same analyses on different sets by creating a new removelist with and specifying all the samples to remove
+    # some files may be too small for StringTie to handle, so list them here as you encounter the errors.
+  # you can run the same analyses on different sets by creating a new removelist and specifying all the samples to remove
+    # samples will be identified by partial matches to the filenames, so you must include at a minimum a short unique pattern to identify the sample
   # then, add the new removelist in quotes to the REMOVELISTS variable
   # to identify and separate each set of files, add a unique name for each set in the SETNAMES variable
+  # to run the analysis on all samples, use: SETNAMES=("NA")
 SETNAMES=("all" "300" "5k" "culnor" "priyou")
 removelist1="-51 -48 -39"
 removelist2="-51 -50 -48 -45 -39 -21"
@@ -100,8 +101,3 @@ removelist3="-12 -14 -17 -21 -22 -29 -30 -31 -33 -34 -38 -39 -40 -42 -45 -48 -50
 removelist4="-10 -11 -13 -18-B -21 -25 -27 -28 -30 -31 -32 -34 -38 -39 -43 -44 -45 -48 -51 -52 -54-B -55 -56 -57"
 removelist5="-51 -48 -39 -12 -14 -15 -16 -17 -19 -20 -22 -23 -24 -26 -29 -33 -35 -36 -37 -40 -41 -42 -46 -47 -49 -50 -53"
 REMOVELISTS=("${removelist1}" "${removelist2}" "${removelist3}" "${removelist4}" "${removelist5}")
-
-
-## list of data for BLAST
-uniprot_file="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/uniprot/uniprot_agaricales_taxonomy_5338.fasta"
-rrna_file="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/rRNA/fungi_18S_28S_ITS.fna"
