@@ -660,27 +660,46 @@ mojo() {
     removelist=$2
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Beginning analysis of sample set ${setname}"
     
-    # make folder and update BALLGOWNLOC
-    if [[ ! -d ${BALLGOWNLOC1}/${setname} ]]; then
-        mkdir ${BALLGOWNLOC1}/${setname}
-    fi
-    BALLGOWNLOC=${BALLGOWNLOC1}/${setname}
+    BALLGOWNLOC=${output}/ballgown # location for ballgown-specific file structures and data calculations
+    # after each major process is complete, do file management
+        # merge files, est abundance, create transcriptome
+            # copy tome and abundances to input
+            # move tome to destdir/products
+            # move rest to destdir/calculations/merge
+        # remove rrna
+            # copy adjusted abundance files to input
+            # move all to destdir/calculations/rrna_removal
+        # busco test
+            # move busco output to destdir/products
+            # move remaining to destdir/calculations/busco
+        # ballgown
+            # copy lists to input
+            # move PCA plots to destdir/products/pca
+        # proteome
+            # copy lists to input
+            # move lists to destdir/products/proteome
+            # move rest to destdir/calculations/proteome
+        # heat maps
+            # move heat maps to destdir/products/heatmaps
+        # panther
+            # move lists to destdir/products/go
+            # move rest to destdir/calculations/panther
     
     # create file to hold list of files to merge
-    touch ${ALIGNLOC}/mergelist.txt
+    touch ${output}/mergelist.txt
 
     ## merge transcript file
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Merge selected transcripts (StringTie)"
-    ls -1 ${ALIGNLOC}/*.gtf > ${ALIGNLOC}/${setname}_mergelist.txt
+    ls -1 ${input}/*.gtf > ${output}/${setname}_mergelist.txt
         
     # remove lines from transcript list that match samples in the removelist
     for removestr in ${removelist}; do
-        grep -v -- ${removestr} ${ALIGNLOC}/${setname}_mergelist.txt > ${ALIGNLOC}/temp.txt
-        mv ${ALIGNLOC}/temp.txt ${ALIGNLOC}/${setname}_mergelist.txt
+        grep -v -- ${removestr} ${output}/${setname}_mergelist.txt > ${output}/temp.txt
+        mv ${output}/temp.txt ${output}/${setname}_mergelist.txt
     done
 
     $STRINGTIE --merge -p $NUMCPUS \
-        -o ${BALLGOWNLOC}/stringtie_merged.gtf ${ALIGNLOC}/${setname}_mergelist.txt
+        -o ${BALLGOWNLOC}/stringtie_merged.gtf ${output}/${setname}_mergelist.txt
 
     ## estimate transcript abundance
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Estimate abundance for each sample (StringTie)"
@@ -959,23 +978,6 @@ fi
 
 set -e
 
-if [[ $OUTDIR != "." ]]; then
-  mkdir -p $OUTDIR
-  cd $OUTDIR
-fi
-
-ALIGNLOC=./hisat2
-BALLGOWNLOC=${OUTDIR}/ballgown
-BALLGOWNLOC1=${BALLGOWNLOC}
-
-LOGFILE=${LOGLOC}/rnaseq_pipeline_run.log
-
-for d in "$TEMPLOC" "$ALIGNLOC" "$BALLGOWNLOC" ; do ####################################### might not be needed
- if [ ! -d $d ]; then
-    mkdir -p $d
- fi
-done
-
 export PATH="$PATH:${BLASTDIR}:${TRIMMOMATICADAPTERS}"
 
 
@@ -1049,9 +1051,6 @@ if [[ ${skip} == "N" ]]; then
     initproc 2>&1 | tee -a $LOGFILE
 
 fi
-# empty input folder
-# copy needed files to input folder
-# move output files/directories to destination directory
 
 
 
