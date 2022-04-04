@@ -480,7 +480,7 @@ initqc() {
     fi
     
     
-    ## end of block file management
+    ## end-of-block file management
     skip="N"
     chklog "initqc_file_management_complete"
     if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
@@ -488,7 +488,10 @@ initqc() {
     fi
     if [[ ${skip} == "N" ]]; then
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> File Management..."
-
+        
+        # empty local input folder (it should already be empty)
+        emptydir ${input}
+        
         # copy final files to local input folder
             # in case the process was interrupted after moving /interleave but before reaching completing file management, avoid errors by first checking to see if the /interleave folder is still in the output folder
         if [[ -d ${output}/interleave ]]; then
@@ -519,53 +522,131 @@ initqc() {
 ### initial sample processing
 initproc() {
 
-    touch ${ALIGNLOC}/mergelist.txt
+    temploc=${output}/temp
+    if [[ ! -d ${temploc} ]]; then
+        mkdir ${temploc}
+    fi
+    alignloc=${output}/aligned
+    if [[ ! -d ${alignloc} ]]; then
+        mkdir ${alignloc}
+    fi
+    unmappeddir=${output}/unmapped
+    if [[ ! -d ${unmappeddir} ]]; then
+        mkdir ${unmappeddir}
+    fi
+    
+    ############################################################### check file names
+    
+    # the final qality controlled sequences should all be in the local input folder
+    # samples should have the same prefix and may have the suffixes: _1U.fq _2U.fq _out_pairs_fwd.fastq _out_pairs_rev.fastq _out_unpaired.fastq
+    reads1=(${input}/*_out_pairs_fwd.fastq)
+    reads2=("${reads1[@]/_fwd./_rev.}")
+    unpaired1=("${reads1[@]/_pairs_fwd/_unpaired}")
+    unpaired2=(${input}/*_1U.fqtrimmed.fq)
+    unpaired3=("${unpaired2[@]/_1U/_2U}")
+    
     for ((i=0; i<=${#reads1[@]}-1; i++ )); do
+        sample="${reads1[$i]##*/}"
         sample="${reads1[$i]%%.*}"
-        #sample="${sample%_R1*}"
-        sample="${sample%_L001*}"
+        sample="${sample%_L001*}" ########################################## check that this is needed
         echo "Sample name: " ${sample}
 
         # in case of interruption, skip finished files
-        if [[ -f ${ALIGNLOC}/${sample}.gtf ]]; then
-            echo "${sample} complete in HISAT2 and StringTie. Skipping..."
-        else
+        skip="N"
+        chklog "initproc_${sample}_complete"
+        if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+            skip="Y"
+        fi
+        if [[ ${skip} == "N" ]]; then
+        
+            ${unmappedloc}=${unmappeddir}/${sample}
 
-            unpairedBoth=${FASTQLOC}/${unpaired1[$i]},${FASTQLOC}/${unpaired2[$i]},${FASTQLOC}/${unpaired3[$i]}
+            unpairedBoth=${unpaired1[$i]},${unpaired2[$i]},${unpaired3[$i]}
             stime=`date +"%Y-%m-%d %H:%M:%S"`
             echo "[$stime] Processing sample: $sample"
             echo [$stime] "   * Alignment of reads to genome (HISAT2)"
-            $HISAT2 -p $NUMCPUS --dta -x ${GENOMEIDX} \
-             -1 ${FASTQLOC}/${reads1[$i]} \
-             -2 ${FASTQLOC}/${reads2[$i]} \
-             -S ${TEMPLOC}/${sample}.sam 2>${ALIGNLOC}/${sample}.alnstats \
-             -U ${unpairedBoth} \
-             --seed 12345 --un-gz ${BASEDIR}/unmapped \
-             --un-conc ${BASEDIR}/unmapped
-             #defaults kept for strandedness, alignment, and scoring options
+            
+            if [[ ${USEUNPAIRED} == "Y" ]]; then
+                $HISAT2 -p $NUMCPUS --dta -x ${GENOMEIDX} \
+                 -1 ${reads1[$i]} \
+                 -2 ${reads2[$i]} \
+                 -S ${temploc}/${sample}.sam 2>${alignloc}/${sample}.alnstats \
+                 -U ${unpairedBoth} \
+                 --seed 12345 --un-gz ${BASEDIR}/unmapped \
+                 --un-conc ${unmappedloc}
+                 #defaults kept for strandedness, alignment, and scoring options
+             else
+                $HISAT2 -p $NUMCPUS --dta -x ${GENOMEIDX} \
+                 -1 ${reads1[$i]} \
+                 -2 ${reads2[$i]} \
+                 -S ${temploc}/${sample}.sam 2>${alignloc}/${sample}.alnstats \
+                 --seed 12345 --un-gz ${BASEDIR}/unmapped \
+                 --un-conc ${unmappedloc}
+                 #defaults kept for strandedness, alignment, and scoring options
+             fi
 
             echo [`date +"%Y-%m-%d %H:%M:%S"`] "   * Alignments conversion (SAMTools)"
             if [[ "$newsamtools" ]]; then
-             $SAMTOOLS view -S -b ${TEMPLOC}/${sample}.sam | \
-              $SAMTOOLS sort -@ $NUMCPUS -o ${ALIGNLOC}/${sample}.bam -
+             $SAMTOOLS view -S -b ${temploc}/${sample}.sam | \
+              $SAMTOOLS sort -@ $NUMCPUS -o ${alignloc}/${sample}.bam -
             else
-             $SAMTOOLS view -S -b ${TEMPLOC}/${sample}.sam | \
-              $SAMTOOLS sort -@ $NUMCPUS - ${ALIGNLOC}/${sample}
+             $SAMTOOLS view -S -b ${temploc}/${sample}.sam | \
+              $SAMTOOLS sort -@ $NUMCPUS - ${alignloc}/${sample}
             fi
-            $SAMTOOLS index ${ALIGNLOC}/${sample}.bam
-            #$SAMTOOLS flagstat ${ALIGNLOC}/${sample}.bam
+            $SAMTOOLS index ${alignloc}/${sample}.bam
 
             echo "..removing intermediate files"
-            rm ${TEMPLOC}/${sample}.sam
-            #rm ${TEMPLOC}/${sample}.unsorted.bam
+            rm ${temploc}/${sample}.sam
 
             echo [`date +"%Y-%m-%d %H:%M:%S"`] "   * Assemble transcripts (StringTie)"
-            $STRINGTIE -p $NUMCPUS -o ${ALIGNLOC}/${sample}.gtf \
-             -l ${sample} ${ALIGNLOC}/${sample}.bam \
+            $STRINGTIE -p $NUMCPUS -o ${alignloc}/${sample}.gtf \
+             -l ${sample} ${alignloc}/${sample}.bam \
              -c 1.5
              # -m kept at default of 0.01
+             
+             echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> initproc_${sample}_complete"
         fi
     done
+    
+    
+    ## end-of-block file management
+    skip="N"
+    chklog "initproc_file_management_complete"
+    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+        skip="Y"
+    fi
+    if [[ ${skip} == "N" ]]; then
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> File Management..."
+        
+        # empty local input folder (a copy should have been saved elsewhere earlier)
+        emptydir ${input}
+        
+        # empty and delete temp folder
+        emptydir ${temp}
+        rm ${temp}
+        
+        # copy final files to local input folder
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Copying necessary files to input folder"
+            # in case the process was interrupted after moving /interleave but before reaching completing file management, avoid errors by first checking to see if the /aligned folder is still in the output folder
+        if [[ -d ${alignloc} ]]; then
+            for file in ${alignloc}/*.gtf; do
+                basename=${file##*/}
+                echo ${basename}
+
+                cp ${file} ${input}/${basename}
+            done
+        fi
+
+        # move contents of output folder to destination folder
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Moving files to destination folder"
+        if [[ ! -d ${DESTDIR}/initproc ]]; then
+            mkdir ${DESTDIR}/initproc
+        fi
+
+        mv ${output}/* ${DESTDIR}/initproc
+        
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> initproc_file_management_complete"
+    fi
     
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> initproc_complete"
 }
@@ -584,6 +665,9 @@ mojo() {
         mkdir ${BALLGOWNLOC1}/${setname}
     fi
     BALLGOWNLOC=${BALLGOWNLOC1}/${setname}
+    
+    # create file to hold list of files to merge
+    touch ${ALIGNLOC}/mergelist.txt
 
     ## merge transcript file
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Merge selected transcripts (StringTie)"
@@ -852,7 +936,7 @@ mojo() {
     
     cd ${WRKDIR}
     
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_mojo_complete"
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> mojo_${setname}_complete"
 }
 
 
@@ -886,7 +970,7 @@ BALLGOWNLOC1=${BALLGOWNLOC}
 
 LOGFILE=${LOGLOC}/rnaseq_pipeline_run.log
 
-for d in "$TEMPLOC" "$ALIGNLOC" "$BALLGOWNLOC" ; do
+for d in "$TEMPLOC" "$ALIGNLOC" "$BALLGOWNLOC" ; do ####################################### might not be needed
  if [ ! -d $d ]; then
     mkdir -p $d
  fi
@@ -954,8 +1038,17 @@ fi
 echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Checking programs for part 2..."
 chkprog 2
 # (if skip) check if initial analysis was previously completed - if so, skip inital analysis
-# do initial analysis (if skip, skip completed files)
-initproc 2>&1 | tee -a $LOGFILE
+skip="N"
+chklog "initproc_complete"
+if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+    skip="Y"
+fi
+if [[ ${skip} == "N" ]]; then
+
+    # do initial analysis
+    initproc 2>&1 | tee -a $LOGFILE
+
+fi
 # empty input folder
 # copy needed files to input folder
 # move output files/directories to destination directory
