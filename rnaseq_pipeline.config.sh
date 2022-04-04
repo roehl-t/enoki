@@ -88,18 +88,6 @@ RRNADIR="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/rRNA"
 PANTHERLIBDIR="/Volumes/RAID_5_data_arra/Todd/Thomas_Roehl_RNASeq/panther/target4/famlib/rel/PANTHER16.0_altVersion/ascii/PANTHER16.0" # download and extract any one of the .tgz files (all contain same data) from http://data.pantherdb.org/ftp/panther_library/current_release/
 
 
-## list of samples 
-## (only paired reads, must follow _1.*/_2.* file naming convention)
-############################## needs update -- these will be generated dynamically
-reads1=(${FASTQLOC}/*_fwd.fastq)
-reads1=("${reads1[@]##*/}")
-reads2=("${reads1[@]/_fwd/_rev}")
-unpaired1=("${reads1[@]/_pairs_fwd/_unpaired}")
-unpaired2=(${FASTQLOC}/*_1U.fqtrimmed.fq)
-unpaired2=("${unpaired2[@]##*/}")
-unpaired3=("${unpaired2[@]/_1U/_2U}")
-
-
 ## sample subset declarations
   # list samples you want to remove from analysis below
   # you can run the same analyses on different sets by creating a new removelist with and specifying all the samples to remove
