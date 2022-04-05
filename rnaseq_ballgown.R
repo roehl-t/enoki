@@ -8,25 +8,19 @@ args = commandArgs(trailingOnly=TRUE)
 #if (length(args)==0) {
 # assume no output directory argument was given to rnaseq_pipeline.sh
 
-pheno_data_file <- args[1]
-data_dir_loc <- args[2]
+pheno_data_file <- args[1] # where the phenotype data file is
+data_dir_loc <- args[2] # where the .ctab files are
+setname <- args[3] # what to call this run
+covname <- args[4] # phenotype data column to use as the covariate
+adjnames <- args[5] # phenotype data columns to use as the confounding variables
+cutoff <- args[6] # ignore files with less than this number of samples (already done in rnaseq_pipeline.sh, but the option is here in case you want to run just this file -- use 0 to skip the cutoff steps)
+wrkdir <- args[7] # where to save the files
+logloc <- args[8] # where to save the log
 
-# set covariate (covname) and confounding variables (adjnames)
-covname <- "tissue"
-adjnames <- c("type")
-
-# when comparing exactly 2 stages, set covariate as type to take advantage of getFC
-setnamesplit <- strsplit(data_dir_loc, "/")[[1]][]
-setname <- setnamesplit[length(setnamesplit)]
-if(setname == "culnor" | setname == "priyou"){
-    covname <- "type"
-    adjnames <- c("tissue")
-}
-
-setwd(paste(data_dir_loc,"/bg_output", sep = ""))
+setwd(wrkdir)
 
 # create an output log
-zz <- file("ballgown_output_log.txt", open="wt")
+zz <- file(paste(logloc, "/", setname, "_ballgown_output_log.txt", sep = ""), open="wt")
 sink(zz, type="message")
 
 library(ballgown)
@@ -51,103 +45,110 @@ pheno_data <- read.csv(pheno_data_file, header=TRUE, stringsAsFactors=F)
 print("Phenotypic data read")
 
 
-# to re-run transcript cutoff manipulation, first restore hidden files from previous runs
-direclist <- list.dirs(paste(data_dir_loc, "/hidden", sep = ""), recursive = F)
-for(dir in direclist){
-    newpath <- sub("/hidden", "", dir)
-    if(dir.exists(newpath)){
-        # duplicate files were left in /hidden from an old run
-        # delete those extra files
-        unlink(dir, recursive = T)
-    } else {
-        # no duplicates exist, restore the hidden files
-        file.rename(from = dir, to = newpath)
-    }
-}
-
-
-## count the number of distinct transcripts in each t_data file
-dirlist <- list.dirs(data_dir_loc, recursive = F)
-first <- T
-for(dir in dirlist){
-    if(file.exists(paste(dir, "/t_data.ctab", sep = ""))){
-        tfile <- read.table(paste(dir, "/t_data.ctab", sep = ""), header = T)
-        tfile <- tfile[(tfile$FPKM > 0),]
-        sample <- strsplit(dir, "/")[[1]]
-        sample <- sample[length(sample)]
-        newrow <- data.frame(sample, nrow(tfile))
-        colnames(newrow) <- c("ids", "transcript_count")
-        if(first){
-            countdata <- newrow
-            first <- F
+# done in rnaseq_pipeline.sh, but included here for user convenience
+if(cutoff > 0){
+    # to re-run transcript cutoff manipulation, first restore hidden files from previous runs
+    direclist <- list.dirs(paste(data_dir_loc, "/hidden", sep = ""), recursive = F)
+    for(dir in direclist){
+        newpath <- sub("/hidden", "", dir)
+        if(dir.exists(newpath)){
+            # duplicate files were left in /hidden from an old run
+            # delete those extra files
+            unlink(dir, recursive = T)
         } else {
-            countdata <- merge(countdata, newrow, all.x = T, all.y = T)
-        }
-    }
-}
-write.csv(countdata, file = "transcript_counts.csv", row.names = F)
-
-## remove all files < a cutoff from the pipeline
-##    adjust the cutoff to tailor sensitivity
-cutoff <- 300
-print(paste("Distinct transcripts counted. Removing samples < ", cutoff, "."), sep = "")
-
-removesamples <- countdata[(countdata$transcript_count < cutoff),]
-
-## to manually remove samples, adjust settings here
-##    create a new vector for each column in pheno_data you want to check
-##    add all vectors to the remAll list
-##    add the name of the column to remColList in the same order they appear in remAll
-#remStages <- c("pri", "cul")
-#remAll <- list(remStages)
-#remColList <- c("type", "tissue")
-#
-#remManual <- data.frame(pheno_data$ids, rep(F, nrow(pheno_data)))
-#names(remManual) <- c("ids", "remove")
-#for(i in 1:length(remColList)){
-#    for(j in 1:length(remAll[[i]])){
-#        for(k in 1:nrow(remManual)){
-#            if(grepl(remAll[[i]][j], pheno_data[k,remColList[i]], ignore.case = T)){
-#                remManual$remove[k] <- T
-#            }
-#        }
-#    }
-#}
-#remManual <- remManual[(remManual$remove == T),]
-#remSamMerge <- merge(removesamples, remManual, all.x = T, all.y = T)
-#for(i in 1:nrow(remSamMerge)){
-#    if(is.na(remSamMerge$transcript_count[i])){
-#        remSamMerge$transcript_count[i] <- 1
-#    }
-#}
-#removesamples <- remSamMerge[,!(names(remSamMerge) %in% c("remove"))]
-
-## remove those sample rows from the pdata file
-##    (assumes sample names are stored in "ids" column)
-pdatamerge <- merge(pheno_data, removesamples, all.x = T, all.y = F)
-pdatamerge$transcript_count <- is.na(pdatamerge$transcript_count)
-pheno_data <- pdatamerge[(pdatamerge$transcript_count == T),]
-pheno_data <- pheno_data[,!(names(pheno_data) %in% c("transcript_count"))]
-
-## hide the corresponding files from ballgown
-if(!dir.exists(paste(data_dir_loc, "/hidden", sep = ""))){
-    dir.create(paste(data_dir_loc, "/hidden", sep = ""))
-}
-dirlist <- list.dirs(data_dir_loc, recursive = F)
-for(dir in dirlist){
-    for(sample in removesamples$ids){
-        if(grepl(sample, dir, fixed = T)){
-            filepath <- strsplit(dir, "/")[[1]]
-            lastele <- filepath[length(filepath)]
-            filepath[length(filepath)] <- "hidden"
-            filepath[length(filepath)+1] <- lastele
-            newpath <- paste(filepath, collapse = "/", sep = "")
+            # no duplicates exist, restore the hidden files
             file.rename(from = dir, to = newpath)
         }
     }
+
+
+    ## count the number of distinct transcripts in each t_data file
+    dirlist <- list.dirs(data_dir_loc, recursive = F)
+    first <- T
+    for(dir in dirlist){
+        if(file.exists(paste(dir, "/t_data.ctab", sep = ""))){
+            tfile <- read.table(paste(dir, "/t_data.ctab", sep = ""), header = T)
+            tfile <- tfile[(tfile$FPKM > 0),]
+            sample <- strsplit(dir, "/")[[1]]
+            sample <- sample[length(sample)]
+            newrow <- data.frame(sample, nrow(tfile))
+            colnames(newrow) <- c("ids", "transcript_count")
+            if(first){
+                countdata <- newrow
+                first <- F
+            } else {
+                countdata <- merge(countdata, newrow, all.x = T, all.y = T)
+            }
+        }
+    }
+    write.csv(countdata, file = "transcript_counts.csv", row.names = F)
+
+    ## remove all files < a cutoff from the pipeline
+    ##    adjust the cutoff to tailor sensitivity
+    cutoff <- 300
+    print(paste("Distinct transcripts counted. Removing samples < ", cutoff, "."), sep = "")
+
+    removesamples <- countdata[(countdata$transcript_count < cutoff),]
+
+    ## to manually remove samples, adjust settings here
+    ##    create a new vector for each column in pheno_data you want to check
+    ##    add all vectors to the remAll list
+    ##    add the name of the column to remColList in the same order they appear in remAll
+    #remStages <- c("pri", "cul")
+    #remAll <- list(remStages)
+    #remColList <- c("type", "tissue")
+    #
+    #remManual <- data.frame(pheno_data$ids, rep(F, nrow(pheno_data)))
+    #names(remManual) <- c("ids", "remove")
+    #for(i in 1:length(remColList)){
+    #    for(j in 1:length(remAll[[i]])){
+    #        for(k in 1:nrow(remManual)){
+    #            if(grepl(remAll[[i]][j], pheno_data[k,remColList[i]], ignore.case = T)){
+    #                remManual$remove[k] <- T
+    #            }
+    #        }
+    #    }
+    #}
+    #remManual <- remManual[(remManual$remove == T),]
+    #remSamMerge <- merge(removesamples, remManual, all.x = T, all.y = T)
+    #for(i in 1:nrow(remSamMerge)){
+    #    if(is.na(remSamMerge$transcript_count[i])){
+    #        remSamMerge$transcript_count[i] <- 1
+    #    }
+    #}
+    #removesamples <- remSamMerge[,!(names(remSamMerge) %in% c("remove"))]
+
+    ## remove those sample rows from the pdata file
+    ##    (assumes sample names are stored in "ids" column)
+    pdatamerge <- merge(pheno_data, removesamples, all.x = T, all.y = F)
+    pdatamerge$transcript_count <- is.na(pdatamerge$transcript_count)
+    pheno_data <- pdatamerge[(pdatamerge$transcript_count == T),]
+    pheno_data <- pheno_data[,!(names(pheno_data) %in% c("transcript_count"))]
+
+    ## hide the corresponding files from ballgown
+    if(!dir.exists(paste(data_dir_loc, "/hidden", sep = ""))){
+        dir.create(paste(data_dir_loc, "/hidden", sep = ""))
+    }
+    dirlist <- list.dirs(data_dir_loc, recursive = F)
+    for(dir in dirlist){
+        for(sample in removesamples$ids){
+            if(grepl(sample, dir, fixed = T)){
+                filepath <- strsplit(dir, "/")[[1]]
+                lastele <- filepath[length(filepath)]
+                filepath[length(filepath)] <- "hidden"
+                filepath[length(filepath)+1] <- lastele
+                newpath <- paste(filepath, collapse = "/", sep = "")
+                file.rename(from = dir, to = newpath)
+            }
+        }
+    }
+
+    print(paste("Removed samples moved to ", data_dir_loc, "/hidden", sep = ""))
 }
 
+
 # double check that only samples in the directory are included in the pheno data
+    # very important, not done elsewhere
 dirlist <- list.dirs(data_dir_loc, recursive = F)
 samplelist <- dirlist
 for( i in 1:length(dirlist)){
@@ -161,8 +162,6 @@ checkmerge <- merge(pheno_data, keepframe, all.x = T, all.y = F)
 checkmerge$keep <- !is.na(checkmerge$keep)
 pheno_data <- checkmerge[(checkmerge$keep == T),]
 pheno_data <- pheno_data[,!(names(checkmerge) %in% c("keep"))]
-
-print(paste("Removed samples moved to ", data_dir_loc, "/hidden", sep = ""))
 
 
 ## Read in expression data
