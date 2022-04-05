@@ -853,19 +853,37 @@ listprep() {
     fi
     if [[ ${skip} == "N" ]]; then
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Checking removelists..."
+        
+        # run through transcript counter once to generate count file
+        Rscript ${TRANSCRIPTCOUNTER} ${input} ${SETNAMES[i]} ${LOGLOC} ${temp} 0
 
         removecounter=0
         newremovelists=()
         for ((i=0; i<${#SETNAMES[@]}; i++)); do
             # check if setname begins with "auto-"
+            if [[ ${SETNAMES[i]} == "auto-all" ]]; then
+                currentremovelist="${REMOVEALWAYS}"
+                
             # if auto...
+            elif [[ ${SETNAMES[i]} == auto-* ]]; then
                 # extract cutoff from setname
-                # R script: find all samples below that cutoff, add to removelist.txt
+                cutoff=${SETNAMES[i]}
+                cutoff=${cutoff/"auto-"/}
+                
+                Rscript ${TRANSCRIPTCOUNTER} ${temp}/transcript_counts.csv ${SETNAMES[i]} ${LOGLOC} ${temp} ${cutoff}
+                
                 # extract list from removelist.txt and store as currentremovelist
+                currentremovelist=(cat ${temp}/removelist.txt) ####################################################### does this work?
+                
+            else
             # if not auto...
                 # extract next removelist and store as currentremovelist
+                currentremovelist="${REMOVELISTS[removecounter]}"
                 removecounter=${removecounter}+1
+                
+            fi
             # add currentremovelist to newremovelists
+            echo ${currentremovelist}
             newremovelists+=("${currentremovelist}")
         done
         
@@ -873,7 +891,8 @@ listprep() {
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> removelists_updated"
     fi
     
-    # end-of-block file management: remove /temp directory
+    # end-of-block file management: move transcript_counts.csv to destination and remove /temp
+    mv ${temp}/transcript_counts.csv ${DESTDIR}
     emptydir ${temp}
     rm ${temp}
     
