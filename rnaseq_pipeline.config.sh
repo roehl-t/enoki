@@ -97,15 +97,31 @@ UNIPROTFILE="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/uniprot/uniprot
   # then, add the new removelist in quotes to the REMOVELISTS variable
   # to identify and separate each set of files, add a unique name for each set in the SETNAMES variable
   # to automatically remove samples containing below a certain threshold number of sequences, add "auto-####" to SETNAMES
-    # do not add a removelist for auto-### setnames -- we suggest putting all auto-##### setnames at the end of the SETNAMES list to be sure your manual removelists are in the correct order
-  # to run the analysis on all samples, use: SETNAMES=("NA")
+  # to run the analysis on all samples, use: SETNAMES=("all")
+  # do not add a removelist for "auto-###" or "all" setnames -- we suggest putting all auto-##### setnames at the end of the SETNAMES list to be sure your manual removelists are in the correct order
 SETNAMES=("all" "300" "5k" "culnor" "priyou")
-removelist1="-51 -48 -39"
 removelist2="-51 -50 -48 -45 -39 -21"
 removelist3="-12 -14 -17 -21 -22 -29 -30 -31 -33 -34 -38 -39 -40 -42 -45 -48 -50 -51 -52 -53 -56 -57"
 removelist4="-10 -11 -13 -18-B -21 -25 -27 -28 -30 -31 -32 -34 -38 -39 -43 -44 -45 -48 -51 -52 -54-B -55 -56 -57"
 removelist5="-51 -48 -39 -12 -14 -15 -16 -17 -19 -20 -22 -23 -24 -26 -29 -33 -35 -36 -37 -40 -41 -42 -46 -47 -49 -50 -53"
-REMOVELISTS=("${removelist1}" "${removelist2}" "${removelist3}" "${removelist4}" "${removelist5}")
+REMOVELISTS=("${removelist2}" "${removelist3}" "${removelist4}" "${removelist5}")
   # to remove a sample from every set, add it here
     # some files may be too small for StringTie to handle, so list them here as you encounter the errors (although, rnaseq_pipeline.sh should automatically find and remove them for you)
-REMOVEALWAYS=""
+REMOVEALWAYS="-51 -48 -39"
+
+
+## Ballgown options
+  # to work with more than one set, specify the covariates and confounding variables separately for each set
+  # make sure you specify an equal number of setnames and covariates/confounding variables
+covset1="tissue"
+covset2="tissue"
+covset3="tissue"
+covset4="type"
+covset5="type"
+COVARIATES=("${covset1}" "${covset2}" "${covset3}" "${covset4}" "${covset5}") # column name in the phenotype data file to be used as the covariate by Ballgown
+adjvars1="type"
+adjvars2="type"
+adjvars3="type"
+adjvars4="tissue"
+adjvars5="tissue"
+ADJVARSETS=("${adjvars1}" "${adjvars2}" "${adjvars3}" "${adjvars4}" "${adjvars5}") # column names in the phenotype data file to be used as confounding varaibles by Ballgown
