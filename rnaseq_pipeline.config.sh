@@ -97,9 +97,9 @@ UNIPROTFILE="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/uniprot/uniprot
   # then, add the new removelist in quotes to the REMOVELISTS variable
   # to identify and separate each set of files, add a unique name for each set in the SETNAMES variable
   # to automatically remove samples containing below a certain threshold number of sequences, add "auto-####" to SETNAMES
-  # to run the analysis on all samples, use: SETNAMES=("all")
-  # do not add a removelist for "auto-###" or "all" setnames -- we suggest putting all auto-##### setnames at the end of the SETNAMES list to be sure your manual removelists are in the correct order
-SETNAMES=("all" "300" "5k" "culnor" "priyou")
+  # to run the analysis on all samples, add "auto-all" to SETNAMES
+  # do not add a removelist for "auto-###" or "auto-all" setnames -- we suggest putting all auto-##### setnames at the end of the SETNAMES list to be sure your manual removelists are in the correct order
+SETNAMES=("auto-all" "300" "5k" "culnor" "priyou")
 removelist2="-51 -50 -48 -45 -39 -21"
 removelist3="-12 -14 -17 -21 -22 -29 -30 -31 -33 -34 -38 -39 -40 -42 -45 -48 -50 -51 -52 -53 -56 -57"
 removelist4="-10 -11 -13 -18-B -21 -25 -27 -28 -30 -31 -32 -34 -38 -39 -43 -44 -45 -48 -51 -52 -54-B -55 -56 -57"
