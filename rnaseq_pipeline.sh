@@ -22,7 +22,7 @@ EOF
 
 ##### NOTE
 ##### The following pattern is used to check the output log to see if specific events were completed and to skip the completed sections (if the user has opted to resume):
-
+#
 #skip="N"
 #chklog "completion_text"
 #if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
@@ -32,8 +32,8 @@ EOF
 #    do_normal_function
 #    echo "completion_text"
 #fi
-
-# to remove this feature, find and delete all instances of this pattern
+#
+#
 
 
 
@@ -103,8 +103,25 @@ chkprog() {
         fi
     fi
     
-    # programs for third block (mojo)
-    if [[ $1 == 3 ]]; then
+    # programs for third block (listprep)
+    if [[ $1 == 4 ]]; then
+
+        if [[ ! -x $STRINGTIE ]]; then
+            errprog="stringtie"
+        fi
+        if [[ ! -x $BLASTNAPP ]]; then
+            errprog="BLASTN"
+        fi
+        if [[ ! -f $REMOVERRNA ]]; then
+            errprog="R rRNA removal"
+        fi
+        if [[ ! -f $TRANSCRIPTCOUNT ]]; then
+            errprog="R transcript counter"
+        fi
+    fi
+    
+    # programs for fourth block (mojo)
+    if [[ $1 == 4 ]]; then
 
         if [[ ! -x $STRINGTIE ]]; then
             errprog="stringtie"
@@ -660,7 +677,7 @@ initproc() {
 
 
 ### automatically generate removelists based on user-specified cutoffs
-autoremove() {
+listprep() {
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Automatically generating remove lists..."
     
     # create temporary folder for these processes
@@ -709,28 +726,35 @@ autoremove() {
             fi
             if [[ ${skip} == "N" ]]; then
             
-                if [ ! -d ${temp}/${sample} ]; then
-                    mkdir -p ${temp}/${sample}
+                if [ ! -d ${temp}/abund ]; then
+                    mkdir -p ${temp}/abund
+                fi
+                if [ ! -d ${temp}/abund/${sample} ]; then
+                    mkdir -p ${temp}/abund/${sample}
                 fi
                 
                 set +e # do not exit on errors from the next command
                 
                 $STRINGTIE -e -B -p $NUMCPUS -G ${temp}/stringtie_merged.gtf \
-                -o ${temp}/${sample}/${sample}.gtf ${input}/${sample}.bam
-                
-                set -e # return to default of exiting on any errors
+                -o ${temp}/abund/${sample}/${sample}.gtf ${input}/${sample}.bam
                 
                 # handle cases where StringTie returns an error because the file is too small
                 status=$?
+                
+                set -e # return to default of exiting on any errors
+                
                 if [[ status > 0 ]]; then
-                    #################################################### add this sample to the general remove samples list
+                    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> StringTie error: sample ${sample} will be removed from analysis"
+                    
+                    REMOVEALWAYS="${REMOVEALWAYS} ${sample}"
+                    
                 fi
 
-                echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> listprep_${sample}_abundance_estimated"
+                echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> listprep_${sample}_abundance_estimated"
             fi
         done
         
-        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> listprep_abundance_estimation_complete"
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> listprep_abundance_estimation_complete"
     fi
 
     # create transcript FASTA file
@@ -750,58 +774,110 @@ autoremove() {
     ### BLAST against ribosomal database
 
     # make rRNA database
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Create rRNA database (makeblastdb)"
     
     skip="N"
-    chklog "listprep_transcriptome_complete"
-    if [[ ${chkresult} == "Y" && -d  ]]; then
+    chklog "rRNA_DB_created"
+    if [[ ${chkresult} == "Y" && -d ${databases}/rrnadb ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
-################################################################################################################
-    $BLASTDIR/makeblastdb -in ${rrna_file} -out ${databases}/rrnadb -dbtype nucl
-
-    # BLAST rRNA database
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Query rRNA database with transcroptome (BLASTN)"
-
-    $BLASTNAPP -query ${temp}/transcriptome.fa \
-        -db ${RRNADIR}/ncbi_rrna_fungi \
-        -out ${RRNADIR}/blastn_results.csv \
-        -evalue 1e-6 -num_threads ${NUMCPUS} \
-        -num_alignments 1 -outfmt "6 qseqid stitle sacc evalue pident bitscore length qstart qend sstart send"
-
-    ## remove matched transcripts from ctab files
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Removing rRNA..."
-
-    # save a copy of the original tables in a new folder
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Save a copy of original expression tables"
-
-    for direc in ${BALLGOWNLOC}/ROEHL-FV-*/; do
-        for table in ${direc}*.ctab; do
-            if [[ ! -d ${direc}original_tables ]]; then
-                mkdir ${direc}original_tables
-            fi
-            basename=${table##*/}
-            # restore original files -- do on every rerun
-            if [[ -f ${direc}original_tables/${basename} ]]; then
-                cp ${direc}/original_tables/${basename} ${table}
-            fi
-            # save original files -- do on only first run
-            if [[ ! -f ${direc}original_tables/${basename} ]]; then
-                cp ${table} ${direc}original_tables/${basename}
-            fi
-        done
-    done
-
-    # use R script to remove rRNA and overwrite the .ctab files (leaving originals in subdirectories)
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Remove rRNA from expression tables (R)"
-
-    if [ ! -d ${OUTDIR}/R_logs/ ]; then
-        mkdir ${OUTDIR}/R_logs
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Create rRNA database (makeblastdb)"
+    
+        $BLASTDIR/makeblastdb -in ${RRNAFILE} -out ${databases}/rrnadb -dbtype nucl
+        
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> rRNA_DB_created"
     fi
 
-    Rscript ${REMOVERRNA} ${RRNADIR}/blastn_results.csv ${BALLGOWNLOC} ${OUTDIR}
+    # BLAST rRNA database
+    skip="N"
+    chklog "listprep_rrna_blast_complete"
+    if [[ ${chkresult} == "Y" && -d ${databases}/rrnadb ]]; then
+        skip="Y"
+    fi
+    if [[ ${skip} == "N" ]]; then
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Query rRNA database with transcroptome (BLASTN)"
 
+        $BLASTNAPP -query ${temp}/transcriptome.fa \
+            -db ${databases}/rrnadb \
+            -out ${temp}/rrna_blastn_results.csv \
+            -evalue 1e-6 -num_threads ${NUMCPUS} \
+            -num_alignments 1 -outfmt "6 qseqid stitle sacc evalue pident bitscore length qstart qend sstart send"
+            
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> listprep_rrna_blast_complete"
+    fi
+
+    ## remove matched transcripts from ctab files
+    skip="N"
+    chklog "listprep_rRNA_removed"
+    if [[ ${chkresult} == "Y" && -d ${databases}/rrnadb ]]; then
+        skip="Y"
+    fi
+    if [[ ${skip} == "N" ]]; then
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Removing rRNA..."
+
+        # save a copy of the original tables in a new folder
+        skip="N"
+        chklog "listprep_ctabs_copied"
+        if [[ ${chkresult} == "Y" && -d ${databases}/rrnadb ]]; then
+            skip="Y"
+        fi
+        if [[ ${skip} == "N" ]]; then
+            echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Save a copy of original expression tables"
+
+            if [[ -d ${temp}/rrna_free ]]; then
+                # we want the contents of /abund to be copied to /rrna_free
+                # if /rrna_free exists, cp will instead copy /abund to /rrna_free/abund
+                # to simplify the process, remove /rrna_free, if it exists
+                emptydir ${temp}/rrna_free
+                rm ${temp}/rrna_free
+            fi
+            
+            cp -R ${temp}/abund ${temp}/rrna_free
+            
+            echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> listprep_ctabs_copied"
+        fi
+
+        # use R script to remove rRNA and overwrite the .ctab files
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Remove rRNA from expression tables (R)"
+
+        Rscript ${REMOVERRNA} ${temp}/blastn_results.csv ${temp}/rrna_free ${LOGDIR} "listprep"
+        
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> listprep_rRNA_removed"
+    fi
+    
+    ## for each auto remove list, add samples to that list that are below the cutoff and add any REMOVEALWAYS samples
+    skip="N"
+    chklog "removelists_updated"
+    if [[ ${chkresult} == "Y" && -d ${databases}/rrnadb ]]; then
+        skip="Y"
+    fi
+    if [[ ${skip} == "N" ]]; then
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Checking removelists..."
+
+        removecounter=0
+        newremovelists=()
+        for ((i=0; i<${#SETNAMES[@]}; i++)); do
+            # check if setname begins with "auto-"
+            # if auto...
+                # extract cutoff from setname
+                # R script: find all samples below that cutoff, add to removelist.txt
+                # extract list from removelist.txt and store as currentremovelist
+            # if not auto...
+                # extract next removelist and store as currentremovelist
+                removecounter=${removecounter}+1
+            # add currentremovelist to newremovelists
+            newremovelists+=("${currentremovelist}")
+        done
+        
+        REMOVELISTS=${newremovelists}
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> removelists_updated"
+    fi
+    
+    # end-of-block file management: remove /temp directory
+    emptydir ${temp}
+    rm ${temp}
+    
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> listprep_complete"
 }
 
 
@@ -930,7 +1006,7 @@ mojo() {
     # make rRNA database
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Create rRNA database (makeblastdb)"
 
-    $BLASTDIR/makeblastdb -in ${rrna_file} -out ${RRNADIR}/ncbi_rrna_fungi -dbtype nucl
+    $BLASTDIR/makeblastdb -in ${RRNAFILE} -out ${RRNADIR}/ncbi_rrna_fungi -dbtype nucl
 
     # BLAST rRNA database
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Query rRNA database with transcroptome (BLASTN)"
@@ -971,7 +1047,7 @@ mojo() {
         mkdir ${OUTDIR}/R_logs
     fi
 
-    Rscript ${REMOVERRNA} ${RRNADIR}/blastn_results.csv ${BALLGOWNLOC} ${OUTDIR}
+    Rscript ${REMOVERRNA} ${RRNADIR}/blastn_results.csv ${BALLGOWNLOC} ${LOGDIR} ${setname}
 
 
     ### busco completeness test
@@ -1019,7 +1095,7 @@ mojo() {
 
     # create BLAST database
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Create gene database (makeblastdb)"
-    $BLASTDIR/makeblastdb -in ${uniprot_file} -out ${UNIPROTDIR}/uniprot_agaricales -dbtype prot
+    $BLASTDIR/makeblastdb -in ${UNIPROTFILE} -out ${UNIPROTDIR}/uniprot_agaricales -dbtype prot
 
     for deglist in ${BALLGOWNLOC}/bg_output/lists/*.txt; do
         currentDEGList=${deglist##*/}
@@ -1258,6 +1334,24 @@ fi
 # check that required files are present for block 3
 echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Checking programs for part 3..."
 chkprog 3
+# (if skip) check if initial analysis was previously completed - if so, skip inital analysis
+skip="N"
+chklog "listprep_complete"
+if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+    skip="Y"
+fi
+if [[ ${skip} == "N" ]]; then
+
+    # prepare removelists
+    listprep 2>&1 | tee -a $LOGFILE
+
+fi
+
+
+
+# check that required files are present for block 4
+echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Checking programs for part 4..."
+chkprog 4
 # for each data subset...
     # (if skip) check if initial analysis was previously completed - if so, skip inital analysis
     # run analysis pipeline (if skip, skip completed files)
