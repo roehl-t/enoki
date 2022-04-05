@@ -43,7 +43,8 @@ if(skipcount == F){
             }
         }
     }
-    csvname <- paste(name, "_transcript_counts.csv", sep = "")
+    # do not use name here so that the shell script can find the file
+    csvname <- "transcript_counts.csv"
     write.csv(countdata, file = csvname, row.names = F)
 }
 
@@ -60,4 +61,5 @@ for(sample in countfilt$ids){
         outlist <- paste(outlist, " ", sample)
     }
 }
-cat(outlist, paste(name, "_removelist.txt", sep=""))
+# do not use name here so that the shell script can find the file
+cat(outlist, file = "removelist.txt")
