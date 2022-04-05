@@ -81,9 +81,7 @@ PANTHERLIBDIR="/Volumes/RAID_5_data_arra/Todd/Thomas_Roehl_RNASeq/panther/target
 
 
 ## list of data for BLAST
-RRNADIR="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/rRNA"
 RRNAFILE="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/rRNA/fungi_18S_28S_ITS.fna"
-UNIPROTDIR="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/uniprot"
 UNIPROTFILE="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/uniprot/uniprot_agaricales_taxonomy_5338.fasta"
 
 
