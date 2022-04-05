@@ -8,11 +8,12 @@ blastfile <- args[1] # .csv file of blast results
 datafolderloc <- args[2] # where to find the folders of tables
 datafolders <- list.dirs(datafolderloc, recursive = F)
 workdir <- args[3] # where to set the working directory
+runname <- args[4] # name of this run to be used in the log file name
 
 setwd(workdir)
 
 # create an output log
-zz <- file("./R_logs/remove_rRNA_output_log.txt", open="wt")
+zz <- file(paste("./", runname, "remove_rRNA_output_log.txt", sep = ""), open="wt")
 sink(zz, type="message")
 
 # read in blast results
