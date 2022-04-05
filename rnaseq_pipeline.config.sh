@@ -54,14 +54,19 @@ BLASTNAPP=/Applications/ncbi-blast-2.10.0+/bin/blastn
 PANTHERSCORE=/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/panther/pantherScore2.2/pantherScore2.2.pl
 
 ## paths for programs included in enoki
-INTERLEAVE=/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/data/data_concat/fqtrim_output/interleave_pairs.py
-MATCHGENES=/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/scripts/match_mstrng_to_gene.py
-NAMEGENES=/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/scripts/name_genes2.R
-REMOVERRNA=/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/scripts/remove_rRNA.R
-FIXUNIPROT=/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/scripts/extract_uniprot_title_info.R
-HEATMAP=/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/scripts/heatmap.R
-UNIPROTFASTA=/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/scripts/map_UniProtKB_FASTA.py
-PANTHERFPKM=/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/scripts/map_panther_fpkm.R
+scripts=/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/scripts
+# all these should be in the same folder
+  # if they are, simply update scripts= with the name of the folder
+  # if scripts are in separate folders, update all the variables below
+INTERLEAVE=${scripts}/interleave_pairs.py
+REMOVERRNA=${scripts}/remove_rRNA.R
+TRANSCRIPTCOUNTER=${scripts}/transcript_counter.R
+MATCHGENES=${scripts}/match_mstrng_to_gene.py
+NAMEGENES=${scripts}/name_genes2.R
+FIXUNIPROT=${scripts}/extract_uniprot_title_info.R
+HEATMAP=${scripts}/heatmap.R
+UNIPROTFASTA=${scripts}/map_UniProtKB_FASTA.py
+PANTHERFPKM=${scripts}/map_panther_fpkm.R
 
 
 #### File paths for input data
