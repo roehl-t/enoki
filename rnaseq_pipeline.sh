@@ -1375,9 +1375,18 @@ chkprog 4
     # (if skip) check if initial analysis was previously completed - if so, skip inital analysis
     # run analysis pipeline (if skip, skip completed files)
 ## run rest of pipeline on various sample sets
-for ((j=0; j<="${#SETNAMES[@]}"-1; j++ )); do
-    mojo ${setnames[j]} ${removelists[j]} 2>&1 | tee -a $LOGFILE
+for ((index=0; index<${#SETNAMES[@]}; index++ )); do
+    skip="N"
+    chklog "mojo_${SETNAMES[index]}_complete"
+    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+        skip="Y"
+    fi
+    if [[ ${skip} == "N" ]]; then
+        
+        # perform main analyses
+        mojo ${SETNAMES[index]} ${REMOVELISTS[index]} 2>&1 | tee -a $LOGFILE
+    
+    fi
 done
-# move output files/directories to destination directory
 
 echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> PIPELINE-COMPLETE."
