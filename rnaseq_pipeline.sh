@@ -912,14 +912,14 @@ mojo() {
     fi
     
     destination=${DESTDIR}/analysis/${setname}
+    thisinput=${input}/${setname}
     
     # after each major process is complete, do file management
     
         # merge files, est abundance, create transcriptome
-            # do in output/ballgown
-            # copy tome to input, leave ball
+            # do in output/abundances
             # move tome to destination/products
-            # move rest to destination/calculations/ballgown
+            # move rest to destination/calculations/abundances
     BALLGOWNLOC=${output}/ballgown
     ballgowndest=${destination}/calculations/ballgown
     productdest=${destination}/products
