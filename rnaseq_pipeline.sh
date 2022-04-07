@@ -914,30 +914,29 @@ mojo() {
     destination=${DESTDIR}/analysis/${setname}
     thisinput=${input}/${setname}
     
-    # after each major process is complete, do file management
-    
+    # file management strategy
         # merge files, est abundance, create transcriptome
             # do in output/abundances
             # move tome to destination/products
-            # move rest to destination/calculations/abundances
-    BALLGOWNLOC=${output}/ballgown
+            # move rest to destination/expression_tables/raw_abundances
+    BALLGOWNLOC=${output}/abundances
     ballgowndest=${destination}/calculations/ballgown
     productdest=${destination}/products
-    
         # remove rrna
             # do in output/rrna
-            # copy adjusted abundance files to input
-            # move all to destdir/calculations/rrna_removal
+            # move all to destdir/expression_tables/rrna_removed
+    # copy adjusted ctab files to thisinput/abund
+    # copy tome to thisinput
+    # move files from output as described above
         # busco test
             # do in output/busco
             # move busco output to destdir/products
             # move remaining to destdir/calculations/busco
+    # move busco files from output as described above
         # ballgown
             # do in output/ballgown
-            # copy lists to input
             # move PCA plots to destdir/products/pca
         # proteome
-            # copy lists to input
             # move lists to destdir/products/proteome
             # move rest to destdir/calculations/proteome
         # heat maps
@@ -945,6 +944,8 @@ mojo() {
         # panther
             # move lists to destdir/products/go
             # move rest to destdir/calculations/panther
+    # move files from output as described above
+    # empty and delete thisinput
     
     # create merge list
     skip="N"
