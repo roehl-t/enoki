@@ -907,45 +907,78 @@ mojo() {
     removelist=$2
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Beginning analysis of sample set ${setname}"
     
-    if [[ ! -d ${DESTDIR}/analysis ]]; then
-        mkdir ${DESTDIR}/analysis
-    fi
-    
+    analysis=${DESTDIR}/analysis
     destination=${DESTDIR}/analysis/${setname}
+    exprdest=${destination}/expression_tables
     thisinput=${input}/${setname}
+    direcs=("${analysis}" "${destination}" "${exprdest}" "${thisinput}")
     
     # file management strategy
         # merge files, est abundance, create transcriptome
             # do in output/abundances
             # move tome to destination/products
             # move rest to destination/expression_tables/raw_abundances
-    BALLGOWNLOC=${output}/abundances
-    ballgowndest=${destination}/calculations/ballgown
+    abundances=${output}/abundances
     productdest=${destination}/products
+    direcs+=("${abundances}" "${productdest}")
         # remove rrna
             # do in output/rrna
             # move all to destdir/expression_tables/rrna_removed
+    rrnaout=${output}/rrna
+    rrnadest=${destination}/expression_tables/rrna_removed
+    direcs+=("${rrnaout}" "${rrnadest}")
     # copy adjusted ctab files to thisinput/abund
     # copy tome to thisinput
     # move files from output as described above
+    thisinabund=${thisinput}/abund
+    direcs+=("${thisinabund}")
         # busco test
             # do in output/busco
             # move busco output to destdir/products
             # move remaining to destdir/calculations/busco
+    buscoout=${output}/${busco}
+    calc=${destination}/calculations
+    buscodest=${destination}/calculations/busco
+    direcs+=("${buscoout}" "${calc}" "${buscodest}")
     # move busco files from output as described above
         # ballgown
             # do in output/ballgown
-            # move PCA plots to destdir/products/pca
+            # move PCA plots to destdir/products/plots
+            # move remainder to destination/calculations/ballgown
+    plotsdest=${destination}/products/plots
+    ballgownout=${output}/ballgown
+    ballgowndest=${destination}/calculations/ballgown
+    direcs+=("${prodplot}" "${ballgownout}" "${ballgowndest}")
         # proteome
+            # do in output/proteome
             # move lists to destdir/products/proteome
             # move rest to destdir/calculations/proteome
-        # heat maps
-            # move heat maps to destdir/products/heatmaps
+    protout=${output}/proteome
+    protproducts=${destination}/products/proteome
+    protdest=${destination}/calculations/proteome
+    direcs+=("${protout}" "${protproducts}" "${protdest}")
+        # heat maps/barplots
+            # do in output/plots
+            # move heat maps to destdir/products/plots
+    plotsout=${output}/plots
+    direcs+=("${plotsout}")
         # panther
+            # do in output/panther
             # move lists to destdir/products/go
             # move rest to destdir/calculations/panther
+    pantherout=${output}/panther
+    pantherdest=${destination}/calculations/panther
+    godest=${destination}/products/go
+    direcs+=("${pantherout}" "${pantherdest}" "${godest}")
     # move files from output as described above
     # empty and delete thisinput
+    
+    for direc in ${direcs[@]}; do
+        if [[ ! -d ${direcs} ]]; then
+            mkdir ${direc}
+        fi
+    done
+    
     
     # create merge list
     skip="N"
