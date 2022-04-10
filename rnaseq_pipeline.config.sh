@@ -148,3 +148,16 @@ PCAPAIRS="${pcapair1};${pcapair2};${pcapair3}"
 
 # NCBI API key (if none, type "")
 NCBIAPI=""
+
+# for creating heatmaps and bar plots
+  # these lists need to be separated by commas
+  # will partial match to the gene, organism, or sample name
+genelist1="cytochrome"
+genelist2="hydrophobin,psh"
+genelist3="mitogen,mapk,map"
+genelist4="elongation"
+MAPGENELISTS=("${genelist1}" "${genelist2}" "${genelist3}" "${genelist4}")
+orglist1="Flammulina"
+MAPORGLISTS=("${orglist1}")
+samplelist1=("nor,cul")
+MAPSAMPLELISTS=("${samplelist1}")
