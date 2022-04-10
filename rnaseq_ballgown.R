@@ -5,17 +5,16 @@
 # run this in the output directory for rnaseq_pipeline.sh
 # passing the pheno data csv file as the only argument 
 args = commandArgs(trailingOnly=TRUE)
-#if (length(args)==0) {
-# assume no output directory argument was given to rnaseq_pipeline.sh
 
 pheno_data_file <- args[1] # where the phenotype data file is
 data_dir_loc <- args[2] # where the .ctab files are
 setname <- args[3] # what to call this run
 covname <- args[4] # phenotype data column to use as the covariate
-adjnames <- args[5] # phenotype data columns to use as the confounding variables
-cutoff <- args[6] # ignore files with less than this number of samples (already done in rnaseq_pipeline.sh, but the option is here in case you want to run just this file -- use 0 to skip the cutoff steps)
+adjnames <- strsplit(args[5], " ")[[1]] # phenotype data columns to use as the confounding variables
+pcapairs <- strsplit(args[6], ";")[[1]] # pairs (or singles) of phenotype data columns to be used in generating pca plots
 wrkdir <- args[7] # where to save the files
 logloc <- args[8] # where to save the log
+cutoff <- 0 # ignore files with less than this number of samples (already done in rnaseq_pipeline.sh, but the option is here in case you want to run just this file -- use 0 to skip the cutoff steps)
 
 setwd(wrkdir)
 
@@ -24,7 +23,6 @@ zz <- file(paste(logloc, "/", setname, "_ballgown_output_log.txt", sep = ""), op
 sink(zz, type="message")
 
 library(ballgown)
-library(RSkittleBrewer)
 library(genefilter)
 library(dplyr)
 library(devtools)
@@ -35,9 +33,14 @@ library(ggrepel)
 ## manual controls
 #pheno_data_file <- "~/R/Flammulina-velutipes/ballgown/fv_sampling_data.csv"
 #data_dir_loc <- "C:/Users/mycol/Documents/UW-La Crosse/Flammulina velutipes development/Data/all_ballgown_2022-01-18"
-#setwd("~/R/Flammulina-velutipes/ballgown/bg_output_2022-01-18/younor")
+#setname <- "younor"
 #covname <- "type"
 #adjnames <- c("tissue")
+#pcapairs <- c("batch jar", "position", "tissue type")
+#wrkdir <- "~/R/Flammulina-velutipes/ballgown/bg_output_2022-01-18/younor"
+#logloc <- "~/R/Flammulina-velutipes/ballgown/bg_output_2022-01-18/younor"
+#cutoff <- 300
+#setwd(wrkdir)
 
 
 ## Read phenotype sample data
@@ -85,7 +88,6 @@ if(cutoff > 0){
 
     ## remove all files < a cutoff from the pipeline
     ##    adjust the cutoff to tailor sensitivity
-    cutoff <- 300
     print(paste("Distinct transcripts counted. Removing samples < ", cutoff, "."), sep = "")
 
     removesamples <- countdata[(countdata$transcript_count < cutoff),]
@@ -177,9 +179,12 @@ print("Expression data read")
         #Execution halted
      #Problem can be corrected by removing these samples from the sample files and the phenodata file prior to running the pipeline.
     # Or, the problem can arise when directories in output/ballgown don't match the names in the phenodata file (first column).
+
+
 ## Filter low abundance genes
 bg_enoki_filt <- subset(bg_enoki, "rowVars(texpr(bg_enoki)) > 1", genomesubset=TRUE)
 print("Low abundance genes filtered")
+
 
 ## Generate PCA plots
 # begin with ballgown object
@@ -199,7 +204,7 @@ colnames(expr) <- sub("FPKM.", '', colnames(expr))
 
 # conduct PCA on expression matrix
 pca_expr <- prcomp(expr)
-sink(paste("./PCA/", cutoff, "_enoki_PCA_results.txt", sep = ""))
+sink(paste("./PCA/", "enoki_PCA_results.txt", sep = ""))
 summary(pca_expr)
 sink()
 #biplot(pca_expr)
@@ -228,34 +233,36 @@ for(i in 1:ncol(pdata)){
 
 # create plots
 
-# batch and jar
-pca_expr_vectors$batch <- as.factor(pca_expr_vectors$batch)
-pca_expr_vectors$jar <- as.factor(pca_expr_vectors$jar)
-pdf(file = paste("./PCA/", cutoff, "_enoki_pca_batch-jar.pdf", sep = ""), width = 6, height = 6)
-ggplot(pca_expr_vectors, aes(x = PC1, y = PC2, color = jar, shape = batch)) +
-geom_vline(xintercept = 0, color = "grey") +
-geom_hline(yintercept = 0, color = "grey") +
-geom_point() + theme_classic() + theme(text = element_text(family = "serif")) + 
-geom_text_repel(aes(label = ids), family = "serif")
-dev.off()
-
-# type and tissue
-pdf(file = paste("./PCA/", cutoff, "_enoki_pca_type-tissue.pdf", sep = ""), width = 6, height = 6)
-ggplot(pca_expr_vectors, aes(x = PC1, y = PC2, color = type, shape = tissue)) +
-geom_vline(xintercept = 0, color = "grey") +
-geom_hline(yintercept = 0, color = "grey") +
-geom_point() + theme_classic() + theme(text = element_text(family = "serif")) + 
-geom_text_repel(aes(label = ids), family = "serif")
-dev.off()
-
-# position and mushroom
-pdf(file = paste("./PCA/", cutoff, "_enoki_pca_position.pdf", sep = ""), width = 6, height = 6)
-ggplot(pca_expr_vectors, aes(x = PC1, y = PC2, color = position)) +
-geom_vline(xintercept = 0, color = "grey") +
-geom_hline(yintercept = 0, color = "grey") +
-geom_point() + theme_classic() + theme(text = element_text(family = "serif")) + 
-geom_text_repel(aes(label = ids), family = "serif")
-dev.off()
+for(pcapair in pcapairs){
+    pcanames <- strsplit(pcapair, " ")[[1]]
+    pair1 <- pcanames[1]
+    pca_expr_vectors[,pair1] <- as.factor(pca_expr_vectors[,pair1])
+    if(length(pcanames) > 1){
+        pair2 <- pcanames[2]
+        joiner <- "-"
+        pca_expr_vectors[,pair2] <- as.factor(pca_expr_vectors[,pair2])
+    } else {
+        pair2 <- ""
+        joiner <- ""
+    }
+    pairname <- paste(pair1, joiner, pair2, sep = "")
+    
+    pdf(file = paste("./PCA/", "enoki_pca_", pairname, ".pdf", sep = ""), width = 6, height = 6)
+    if(length(pcanames) > 1){
+        ggplot(pca_expr_vectors, aes(x = PC1, y = PC2, color = pair1, shape = pair2)) +
+        geom_vline(xintercept = 0, color = "grey") +
+        geom_hline(yintercept = 0, color = "grey") +
+        geom_point() + theme_classic() + theme(text = element_text(family = "serif")) + 
+        geom_text_repel(aes(label = ids), family = "serif")
+    } else {
+        ggplot(pca_expr_vectors, aes(x = PC1, y = PC2, color = pair1)) +
+        geom_vline(xintercept = 0, color = "grey") +
+        geom_hline(yintercept = 0, color = "grey") +
+        geom_point() + theme_classic() + theme(text = element_text(family = "serif")) + 
+        geom_text_repel(aes(label = ids), family = "serif")
+    }
+    dev.off()
+}
 
 print("PCA plots created")
 
@@ -267,22 +274,13 @@ results_transcripts <-  stattest(bg_enoki_filt, feature='transcript', covariate=
 ## DE by gene
 results_genes <-  stattest(bg_enoki_filt, feature='gene', covariate=covname, adjustvars=adjnames, getFC=TRUE, meas='FPKM')
 
-
-## Add gene names
-#results_transcripts <- data.frame(geneNames=ballgown::geneNames(bg_enoki_filt),
-#          geneIDs=ballgown::geneIDs(bg_enoki_filt), results_transcripts)
-
 ## Sort results from smallest p-value
 results_transcripts <- arrange(results_transcripts, pval)
 results_genes <-  arrange(results_genes, pval)
 
 ## Write results to CSV
-write.csv(results_transcripts, paste(cutoff, "_enoki_transcripts_results_by_", covname, ".csv", sep = ""), row.names=FALSE)
-write.csv(results_genes, paste(cutoff, "_enoki_genes_results_by_", covname, ".csv", sep = ""), row.names=FALSE)
-
-## Write transcriptome lists to /lists so they are automatically included in the pipeline (automates GO analysis)
-write(tmerge$t_name, file = paste("./lists/", cutoff, "_enoki_transcripts_results_by_", covname, ".txt", sep = ""), sep="\n")
-write(tmerge$t_name, file = paste("./lists/", cutoff, "_enoki_transcripts_results_by_", covname, ".txt", sep = ""), sep="\n")
+write.csv(results_transcripts, paste("enoki_transcripts_results_by_", covname, ".csv", sep = ""), row.names=FALSE)
+write.csv(results_genes, paste("enoki_genes_results_by_", covname, ".csv", sep = ""), row.names=FALSE)
 
 ## Filter for genes with q-val <0.05
 transcripts_q_lt_05 <- subset(results_transcripts, results_transcripts$qval <=0.05)
@@ -308,8 +306,8 @@ tmerge <- merge(transcripts_q_lt_05, tfile, all.x = T, all.y = F)
 genes_q_lt_05$gene_id <- paste(genes_q_lt_05$id, ".1", sep = "")
 
 ## Write lists of DEGs with q<0.05 (for gene ID) separated by new line
-write(tmerge$t_name, file = paste("./lists/", cutoff, "_enoki_transcripts_qlt05_results_by_", covname, ".txt", sep = ""), sep="\n")
-write(genes_q_lt_05$gene_id, file = paste("./lists/", cutoff, "_enoki_genes_qlt05_results_by_", covname, ".txt", sep = ""), sep="\n")
+write(tmerge$t_name, file = paste("./lists/", "enoki_transcripts_qlt05_results_by_", covname, ".txt", sep = ""), sep="\n")
+write(genes_q_lt_05$gene_id, file = paste("./lists/", "enoki_genes_qlt05_results_by_", covname, ".txt", sep = ""), sep="\n")
 
 print("DE lists written")
 
@@ -321,9 +319,9 @@ gene$id <- rownames(gene)
 genemerge <- merge(genes_q_lt_05, gene, all.x = T, all.y = F)
 rownames(genemerge) <- genemerge$gene_id
 writegenes <- genemerge[,(names(genemerge) %in% c("pval", "qval"))]
-write.csv(writegenes, paste(cutoff, "_enoki_genes_qlt05_results_by_", covname, ".csv", sep = ""), row.names=T)
+write.csv(writegenes, paste("enoki_genes_qlt05_results_by_", covname, ".csv", sep = ""), row.names=T)
 writegenes <- genemerge[,!(names(genemerge) %in% c("id", "feature", "pval", "qval", "gene_id"))]
-write.csv(writegenes, paste(cutoff, "_enoki_genes_qlt05_results_by_", covname, "_expr.csv", sep = ""), row.names=T)
+write.csv(writegenes, paste("enoki_genes_qlt05_results_by_", covname, "_expr.csv", sep = ""), row.names=T)
 
 transcript <- texpr(bg_enoki_filt)
 transcript <- data.frame(transcript)
@@ -333,9 +331,9 @@ transmerge <- merge(transcripts_q_lt_05, transcript, all.x = T, all.y = F)
 transmerge2 <- merge(transmerge, tfile, all.x = T, all.y = F)
 rownames(transmerge2) <- transmerge2$t_name
 writetrans <- transmerge2[,(names(transmerge2) %in% c("pval", "qval"))]
-write.csv(writetrans, paste(cutoff, "_enoki_transcripts_qlt05_results_by_", covname, ".csv", sep = ""), row.names=T)
+write.csv(writetrans, paste("enoki_transcripts_qlt05_results_by_", covname, ".csv", sep = ""), row.names=T)
 writetrans <- transmerge2[,!(names(transmerge2) %in% c("t_id", "feature", "pval", "qval", "t_name"))]
-write.csv(writetrans, paste(cutoff, "_enoki_transcripts_qlt05_results_by_", covname, "_expr.csv", sep = ""), row.names=T)
+write.csv(writetrans, paste("enoki_transcripts_qlt05_results_by_", covname, "_expr.csv", sep = ""), row.names=T)
 
 print("DE data written")
 
@@ -347,7 +345,8 @@ gene$id <- rownames(gene)
 genemerge <- merge(results_genes, gene, all.x = T, all.y = F)
 rownames(genemerge) <- genemerge$gene_id
 writegenes <- genemerge[,!(names(genemerge) %in% c("id", "feature", "pval", "qval", "gene_id"))]
-write.csv(writegenes, paste(cutoff, "_enoki_genes_results_by_", covname, "_expr.csv", sep = ""), row.names=T)
+write.csv(writegenes, paste("enoki_genes_results_by_", covname, "_expr.csv", sep = ""), row.names=T)
+write(rownames(writegenes), file = paste("./lists/", "enoki_genes_results_by_", covname, ".txt", sep = ""), sep="\n")
 
 transcript <- texpr(bg_enoki)
 transcript <- data.frame(transcript)
@@ -357,7 +356,8 @@ transmerge <- merge(results_transcripts, transcript, all.x = T, all.y = F)
 transmerge2 <- merge(transmerge, tfile, all.x = T, all.y = F)
 rownames(transmerge2) <- transmerge2$t_name
 writetrans <- transmerge2[,!(names(transmerge2) %in% c("t_id", "feature", "pval", "qval", "t_name"))]
-write.csv(writetrans, paste(cutoff, "_enoki_transcripts_results_by_", covname, "_expr.csv", sep = ""), row.names=T)
+write.csv(writetrans, paste("enoki_transcripts_results_by_", covname, "_expr.csv", sep = ""), row.names=T)
+write(rownames(writetrans), file = paste("./lists/", "enoki_transcripts_results_by_", covname, ".txt", sep = ""), sep="\n")
 
 print("transcriptome expression data written")
 
