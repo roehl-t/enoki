@@ -790,7 +790,7 @@ estabund() {
     # BLAST rRNA database
     skip="N"
     chklog "${thisname}_rrna_blast_complete"
-    if [[ ${chkresult} == "Y" && -d ${databases}/rrnadb ]]; then
+    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
@@ -808,7 +808,7 @@ estabund() {
     ## remove matched transcripts from ctab files
     skip="N"
     chklog "${thisname}_rRNA_removed"
-    if [[ ${chkresult} == "Y" && -d ${databases}/rrnadb ]]; then
+    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
@@ -817,7 +817,7 @@ estabund() {
         # save a copy of the original tables in a new folder
         skip="N"
         chklog "${thisname}_ctabs_copied"
-        if [[ ${chkresult} == "Y" && -d ${databases}/rrnadb ]]; then
+        if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
             skip="Y"
         fi
         if [[ ${skip} == "N" ]]; then
@@ -862,7 +862,7 @@ listprep() {
     ## estimate abundance and remove rRNA
     skip="N"
     chklog "listprep_estabund_complete"
-    if [[ ${chkresult} == "Y" && -d ${databases}/rrnadb ]]; then
+    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
@@ -872,7 +872,7 @@ listprep() {
     ## for each auto remove list, add samples to that list that are below the cutoff and add any REMOVEALWAYS samples
     skip="N"
     chklog "removelists_updated"
-    if [[ ${chkresult} == "Y" && -d ${databases}/rrnadb ]]; then
+    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
@@ -933,6 +933,8 @@ mojo() {
 
     setname=$1
     removelist=$2
+    bg_cov=$3
+    bg_adjvars=$4
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Beginning analysis of sample set ${setname}"
     
     analysis=${DESTDIR}/analysis
@@ -1013,7 +1015,7 @@ mojo() {
     ### estimate abundances and remove rRNA
     skip="N"
     chklog "${setname}_estabund_complete"
-    if [[ ${chkresult} == "Y" && -d ${databases}/rrnadb ]]; then
+    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
@@ -1024,31 +1026,39 @@ mojo() {
     
 
     ### busco completeness test
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Testing Busco completeness..."
-
-    busconame="busco_output_enoki"
-
-    if [[ -d ${BALLGOWNLOC}/${busconame} ]]; then
-        busconame="busco_output_enoki_"`date +"%Y-%m-%d_%H-%M-%S"`
+    skip="N"
+    chklog "${setname}_busco_complete"
+    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+        skip="Y"
     fi
+    if [[ ${skip} == "N" ]]; then
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Testing Busco completeness..."
 
-    docker run -u $(id -u) -v ${abundances}:/busco_wd/ ezlabgva/busco:v4.1.4_cv1 busco \
-        --mode transcriptome \
-        --in /busco_wd/transcriptome.fa \
-        --out ${busconame} \
-        --lineage_dataset ${BUSCODATASET}
-    # note: -v [specify complete file path where you want busco to live]:/busco_wd/
-    # note: the working directory (specified in -v) must be /busco_wd/
-    # note: all file paths (except in -v) must be relative to the image root directory. In this case, -v maps the image root (/busco_wd/) to ${abundances}/ . As a result, the transcriptome file must be referenced as /busco_wd/transcriptome.fa because it is found in ${abundances}/transcriptome.fa
-    # note: --out file must have a name that has never been used for a busco run. Ex: busco was previously run on the same machine with "--out busco_output" so this run must use a new name, "--out busco_output_enoki"
-    # note: if script must be run more than once, delete the output directories before running OR make sure to run the busconame if statement above
-    
+        busconame="busco_output_enoki"
+
+        if [[ -d ${BALLGOWNLOC}/${busconame} ]]; then
+            busconame="busco_output_enoki_"`date +"%Y-%m-%d_%H-%M-%S"`
+        fi
+
+        docker run -u $(id -u) -v ${abundances}:/busco_wd/ ezlabgva/busco:v4.1.4_cv1 busco \
+            --mode transcriptome \
+            --in /busco_wd/transcriptome.fa \
+            --out ${busconame} \
+            --lineage_dataset ${BUSCODATASET}
+        # note: -v [specify complete file path where you want busco to live]:/busco_wd/
+        # note: the working directory (specified in -v) must be /busco_wd/
+        # note: all file paths (except in -v) must be relative to the image root directory. In this case, -v maps the image root (/busco_wd/) to ${abundances}/ . As a result, the transcriptome file must be referenced as /busco_wd/transcriptome.fa because it is found in ${abundances}/transcriptome.fa
+        # note: --out file must have a name that has never been used for a busco run. Ex: busco was previously run on the same machine with "--out busco_output" so this run must use a new name, "--out busco_output_enoki"
+        # note: if script must be run more than once, delete the output directories before running OR make sure to run the busconame if statement above
+        
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_busco_complete"
+    fi
     
     
     ## file management
     skip="N"
     chklog "${setname}_mojo_files_1_complete"
-    if [[ ${chkresult} == "Y" && -d ${databases}/rrnadb ]]; then
+    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
@@ -1091,26 +1101,26 @@ mojo() {
     fi
 
 
+    ### use ballgown to create differential expression tables
+    skip="N"
+    chklog "${setname}_ballgown_complete"
+    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+        skip="Y"
+    fi
+    if [[ ${skip} == "N" ]]; then
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Generate the DE tables (Ballgown)"
+        
+        if [[ ! -d ${ballgownout}/PCA ]]; then
+            mkdir ${ballgownout}/PCA
+        fi
+        if [[ ! -d ${ballgownout}/lists ]]; then
+            mkdir ${ballgownout}/lists
+        fi
 
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Generate the DE tables (Ballgown)"
-
-    if [[ ! -d ${BALLGOWNLOC}/bg_output ]]; then
-        mkdir ${BALLGOWNLOC}/bg_output
+        Rscript ${BALLGOWN} ${PHENODATA} ${mojoinabund} ${setname} ${bg_cov} ${bg_adjvars} ${PCAPAIRS} ${ballgownout} ${LOGLOC}
+    
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_ballgown_complete"
     fi
-    if [[ ! -d ${BALLGOWNLOC}/bg_output/lists ]]; then
-        mkdir ${BALLGOWNLOC}/bg_output/lists
-    fi
-    if [[ ! -d ${BALLGOWNLOC}/bg_output/seq_lists ]]; then
-        mkdir ${BALLGOWNLOC}/bg_output/seq_lists
-    fi
-    if [[ ! -d ${BALLGOWNLOC}/bg_output/PCA ]]; then
-        mkdir ${BALLGOWNLOC}/bg_output/PCA
-    fi
-    if [[ ! -d ${BALLGOWNLOC}/bg_output/named ]]; then
-        mkdir ${BALLGOWNLOC}/bg_output/named
-    fi
-
-    Rscript ${BALLGOWN} ${PHENODATA} ${BALLGOWNLOC}
 
 
     ## BLAST DEGs
@@ -1387,7 +1397,7 @@ for ((index=0; index<${#SETNAMES[@]}; index++ )); do
     if [[ ${skip} == "N" ]]; then
         
         # perform main analyses
-        mojo ${SETNAMES[index]} ${REMOVELISTS[index]} 2>&1 | tee -a $LOGFILE
+        mojo ${SETNAMES[index]} ${REMOVELISTS[index]} ${COVARIATES[index]} ${ADJVARSETS[index]} 2>&1 | tee -a $LOGFILE
     
     fi
 done
