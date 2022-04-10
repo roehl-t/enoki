@@ -781,6 +781,10 @@ estabund() {
     fi
     if [[ ${skip} == "N" ]]; then
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Create rRNA database (makeblastdb)"
+        
+        if [[ ! -d ${databases}/rrnadb ]]; then
+            mkdir ${databases}/rrnadb
+        fi
     
         $BLASTDIR/makeblastdb -in ${RRNAFILE} -out ${databases}/rrnadb -dbtype nucl
         
@@ -1124,49 +1128,104 @@ mojo() {
 
 
     ## BLAST DEGs
+    skip="N"
+    chklog "${setname}_gene_naming_complete"
+    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+        skip="Y"
+    fi
+    if [[ ${skip} == "N" ]]; then
 
-    # create BLAST database
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Create gene database (makeblastdb)"
-    $BLASTDIR/makeblastdb -in ${UNIPROTFILE} -out ${UNIPROTDIR}/uniprot_agaricales -dbtype prot
-
-    for deglist in ${BALLGOWNLOC}/bg_output/lists/*.txt; do
-        currentDEGList=${deglist##*/}
-        currentDEGs=${currentDEGList%.txt}
-        echo "Current DEG list: ${currentDEGs}"
-
-        # biopython: match MSTRNG numbers from DEGs and .fa sequences
-        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Match MSTRNGs to genes for DEGs (Biopython)"
-        filename=${BALLGOWNLOC}/bg_output/seq_lists/${currentDEGs}.fa
-        if [[ -f ${filename} ]]; then
-            rm ${filename}
+        # create BLAST database
+        skip="N"
+        chklog "protein_db_created"
+        if [[ ${chkresult} == "Y" && -d  ]]; then
+            skip="Y"
+        fi
+        if [[ ${skip} == "N" ]]; then
+            echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Create protein database (makeblastdb)"
+            if [[ ! -d ${databases}/protein ]]; then
+                mkdir ${dataabses}/protein
+            fi
+            
+            $BLASTDIR/makeblastdb -in ${UNIPROTFILE} -out ${databases}/protein -dbtype prot
+            
+            echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> protein_db_created"
         fi
 
-        # 3 arguments:
-        # output file name (fasta format)
-        # fasta transcriptome with MSTRNG/sequence pairs
-        # .txt list of DEGs separated by line
-        python3 ${MATCHGENES} ${filename} ${BALLGOWNLOC}/fv_transcriptome.fa ${deglist}
+        for deglist in ${ballgownout}/lists/*.txt; do
+            currentDEGList=${deglist##*/}
+            currentDEGs=${currentDEGList%.txt}
+            
+            skip="N"
+            chklog "${setname}_${currentDEGs}_gene_naming_complete"
+            if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+                skip="Y"
+            fi
+            if [[ ${skip} == "N" ]]; then
+                echo "Current DEG list: ${currentDEGs}"
 
-        # search BLAST database
-        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Query BLAST database for gene names (BLASTX)"
-        
-        $BLASTXAPP -query ${BALLGOWNLOC}/bg_output/seq_lists/${currentDEGs}.fa \
-            -db ${UNIPROTDIR}/uniprot_agaricales \
-            -out ${UNIPROTDIR}/${setname}_${currentDEGs}_blastx_results.csv \
-            -evalue 1e-3 -num_threads ${NUMCPUS} \
-            -num_alignments 1 -outfmt "6 qseqid stitle sacc evalue pident bitscore length qstart qend sstart send"
-        
-        # extract infromation from UniProt stitle
-        Rscript ${FIXUNIPROT} ${UNIPROTDIR}/${setname}_${currentDEGs}_blastx_results.csv ${UNIPROTDIR}/${setname}_${currentDEGs}_blastx_results_readable.csv ${UNIPROTDIR}
-        
-        # match protein names to output files
-        for bgresults in ${BALLGOWNLOC}/bg_output/${currentDEGs}*csv; do
-            resultname=${bgresults##*/}
-            Rscript ${NAMEGENES} ${UNIPROTDIR}/${setname}_${currentDEGs}_blastx_results_readable.csv ${bgresults} ${BALLGOWNLOC}/bg_output/named/${resultname} ${OUTDIR}
+                skip="N"
+                chklog "${setname}_${currentDEGs}_matchgenes_complete"
+                if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+                    skip="Y"
+                fi
+                if [[ ${skip} == "N" ]]; then
+                    # biopython: match MSTRNG numbers from DEGs and .fa sequences
+                    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Match MSTRNGs to genes for DEGs (Biopython)"
+                    filename=${ballgownout}/lists/${currentDEGs}.fa
+                    if [[ -f ${filename} ]]; then
+                        rm ${filename}
+                    fi
+
+                    # 3 arguments:
+                    # output file name (fasta format)
+                    # fasta transcriptome with MSTRNG/sequence pairs
+                    # .txt list of DEGs separated by line
+                    python3 ${MATCHGENES} ${filename} ${mojoinput}/transcriptome.fa ${deglist}
+                    
+                    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_${currentDEGs}_matchgenes_complete"
+                fi
+
+                # search BLAST database
+                skip="N"
+                chklog "${setname}_${currentDEGs}_blastx_complete"
+                if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+                    skip="Y"
+                fi
+                if [[ ${skip} == "N" ]]; then
+                    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Query BLAST database for gene names (BLASTX)"
+
+                    $BLASTXAPP -query ${filename} \
+                        -db ${databases}/protein \
+                        -out ${protout}/${setname}_${currentDEGs}_blastx_results.csv \
+                        -evalue 1e-3 -num_threads ${NUMCPUS} \
+                        -num_alignments 1 -outfmt "6 qseqid stitle sacc evalue pident bitscore length qstart qend sstart send"
+                    
+                    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_${currentDEGs}_blastx_complete"
+                fi
+
+                # extract infromation from UniProt stitle
+                Rscript ${FIXUNIPROT} ${protout}/${setname}_${currentDEGs}_blastx_results.csv ${protout}/${setname}_${currentDEGs}_blastx_results_readable.csv ${LOGLOC}
+                
+                if [[ ! -d ${protout}/named ]]; then
+                    mkdir ${protout}/named
+                fi
+
+                # match protein names to output files
+                for bgresults in ${ballgownout}/${currentDEGs}*csv; do
+                    resultname=${bgresults##*/}
+                    Rscript ${NAMEGENES} ${protout}/${setname}_${currentDEGs}_blastx_results_readable.csv ${bgresults} ${protout}/named/${resultname} ${LOGLOC}
+                done
+                
+                echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_${currentDEGs}_gene_naming_complete"
+            fi
         done
-    done
+        
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_gene_naming_complete"
+    fi
 
 
+######################################################################
 # should be done automatically by adding complete list of transcripts to ballgown/output/lists -- see rnaseq_ballgown
 #    # BLAST transcriptome for PANTHER reference
 #    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Query BLAST database with transcriptome (BLASTX)"
@@ -1181,37 +1240,37 @@ mojo() {
 #    Rscript ${FIXUNIPROT} ${UNIPROTDIR}/${setname}_tome_blastx_results.csv ${UNIPROTDIR}/${setname}_tome_blastx_results_readable.csv ${UNIPROTDIR}
 
 
-     ## generate heat maps
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Creating Heat Maps"
+     ## generate heat maps or bar plots
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Creating Heat Maps and/or Bar Plots"
 
-    if [[ ! -d ${BALLGOWNLOC}/bg_output/heatmaps ]]; then
-        mkdir ${BALLGOWNLOC}/bg_output/heatmaps
-    fi
-
-    for resultfile in ${BALLGOWNLOC}/bg_output/named/*_expr.csv; do
+    for resultfile in ${protout}/named/*_expr.csv; do
         basename=${resultfile##*/}
         base=${basename%.csv}
        
         # map all genes
-        Rscript ${HEATMAP} ${resultfile} ${PHENODATA} ${BALLGOWNLOC}/bg_output/heatmaps/${base}_heatmap_all.pdf "all" "all" "all" "F" ${BALLGOWNLOC}/bg_output/
-       
+        Rscript ${HEATMAP} ${resultfile} ${PHENODATA} ${plotsout}/${base}_heatmap_all.pdf "all" "all" "all" "F" ${LOGLOC}
+        
+        # some sets may not include the features of interest and could therefore return an error, but keep running anyway
+        set +e
+        
         # map specific genes
-        #genelist=("cytochrome" "hydrophobin,psh" "mitogen,mapk,map" "elongation")
-        #for ((k=0; k<=${#genelist[@]}-1; k++)); do
-               # Rscript ${HEATMAP} ${resultfile} ${PHENODATA} ${BALLGOWNLOC}/bg_output/heatmaps/${base}_heatmap_genes_${k}.pdf ${genelist[k]} "all" "all" "F" ${BALLGOWNLOC}/bg_output/
-        #done
+        for ((k=0; k<=${#MAPGENELISTS[@]}-1; k++)); do
+               Rscript ${HEATMAP} ${resultfile} ${PHENODATA} ${plotsout}/${base}_heatmap_genes_${k}.pdf ${MAPGENELISTS[k]} "all" "all" "F" ${LOGLOC}
+        done
        
         # map genes from specific organisms
-        #orglist=("Flammulina")
-        #for ((k=0; k<=${#orglist[@]}-1; k++)); do
-                #Rscript ${HEATMAP} ${resultfile} ${PHENODATA} ${BALLGOWNLOC}/bg_output/heatmaps/${base}_heatmap_orgs_${k}.pdf "all" "all" ${orglist[k]} "F" ${BALLGOWNLOC}/bg_output/
-        #done
+        for ((k=0; k<=${#MAPORGLISTS[@]}-1; k++)); do
+               Rscript ${HEATMAP} ${resultfile} ${PHENODATA} ${plotsout}/${base}_heatmap_orgs_${k}.pdf "all" "all" ${MAPORGLISTS[k]} "F" ${LOGLOC}
+        done
        
         # map specific samples
-        #samplelist=("nor,cul")
-        #for ((k=0; k<=${#samplelist[@]}-1; k++)); do
-             #   Rscript ${HEATMAP} ${resultfile} ${PHENODATA} ${BALLGOWNLOC}/bg_output/heatmaps/${base}_heatmap_samples_${k}.pdf "all" ${samplelist[k]} "all" "F" ${BALLGOWNLOC}/bg_output/
-        #done
+        for ((k=0; k<=${#MAPSAMPLELISTS[@]}-1; k++)); do
+               Rscript ${HEATMAP} ${resultfile} ${PHENODATA} ${plotsout}/${base}_heatmap_samples_${k}.pdf "all" ${MAPSAMPLELISTS[k]} "all" "F" ${LOGLOC}
+        done
+        
+        # reset default behavior of exiting on errors
+        set -e
+        
     done
     
     
