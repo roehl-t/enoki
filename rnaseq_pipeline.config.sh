@@ -28,23 +28,17 @@ FWDREV=("_R1" "_R2")
 USEUNPAIRED=Y
 
 # working directory -- where to put files that are being worked on currently
+  # hint: use an SSD for speed improvement
 WRKDIR=
 
 # final directory -- where the files should go for storage
+  # hint: use a large drive
   ## must have a different name than the working directory
 DESTDIR=
 
-#how many CPUs to use on the current machine?
+# how many CPUs to use on the current machine?
 NUMCPUS=6
 
-
-#### Other Options
-
-# BUSCO dataset name -- what taxonomic group should be used as the BUSCO dataset (see instructions BUSCO's website)?
-BUSCODATASET="agaricales_odb10"
-
-# NCBI API key
-NCBIAPI=
 
 #### Program paths ####
 #if these programs are not in any PATH directories, please edit accordingly:
@@ -89,6 +83,9 @@ TRIMMOMATICADAPTERS="/Applications/Trimmomatic-0.38/adapters/TruSeq3-PE-2.fa" # 
 FASTQLOC="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/data/data_qc_done"
 GENOME="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/genome_assemblies_all_files/ncbi-genomes-2021-11-01/GCA_011800155.1_ASM1180015v1/GCA_011800155.1_ASM1180015v1_genomic.fna"
 GENOMEIDX="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/genome_assemblies_all_files/ncbi-genomes-2021-11-01/GCA_011800155.1_ASM1180015v1/fvIndex"
+# notes for pheotype data file (see example file)
+    # do not use spaces in your column names!
+    # must include a column labeled "ids" that matches the sample IDs used in the filenames
 PHENODATA="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/fv_sampling_data.csv"
 BLASTDIR="/Applications/ncbi-blast-2.10.0+/bin"
 PANTHERLIBDIR="/Volumes/RAID_5_data_arra/Todd/Thomas_Roehl_RNASeq/panther/target4/famlib/rel/PANTHER16.0_altVersion/ascii/PANTHER16.0" # download and extract any one of the .tgz files (all contain same data) from http://data.pantherdb.org/ftp/panther_library/current_release/
@@ -119,18 +116,35 @@ REMOVELISTS=("${removelist2}" "${removelist3}" "${removelist4}" "${removelist5}"
 REMOVEALWAYS="-51 -48 -39"
 
 
-## Ballgown options
-  # to work with more than one set, specify the covariates and confounding variables separately for each set
-  # make sure you specify an equal number of setnames and covariates/confounding variables
+#### Other Options
+
+# BUSCO dataset name -- what taxonomic group should be used as the BUSCO dataset (see instructions BUSCO's website)?
+BUSCODATASET="agaricales_odb10"
+
+# Ballgown options
+    # to work with more than one set, specify the covariates and confounding variables separately for each set
+    # make sure you specify an equal number of setnames and covariates/confounding variables
+    # only one covariate should be specified for each set
+    # mutliple confounding variables may be specified for each set
+  # column name in the phenotype data file to be used as the covariate by Ballgown
 covset1="tissue"
 covset2="tissue"
 covset3="tissue"
 covset4="type"
 covset5="type"
-COVARIATES=("${covset1}" "${covset2}" "${covset3}" "${covset4}" "${covset5}") # column name in the phenotype data file to be used as the covariate by Ballgown
-adjvars1="type"
-adjvars2="type"
-adjvars3="type"
-adjvars4="tissue"
-adjvars5="tissue"
-ADJVARSETS=("${adjvars1}" "${adjvars2}" "${adjvars3}" "${adjvars4}" "${adjvars5}") # column names in the phenotype data file to be used as confounding varaibles by Ballgown
+COVARIATES=("${covset1}" "${covset2}" "${covset3}" "${covset4}" "${covset5}")
+  # column names in the phenotype data file to be used as confounding varaibles by Ballgown
+adjvars1=("type")
+adjvars2=("type")
+adjvars3=("type")
+adjvars4=("tissue")
+adjvars5=("tissue")
+ADJVARSETS=("${adjvars1}" "${adjvars2}" "${adjvars3}" "${adjvars4}" "${adjvars5}")
+  # for PCA, specify pairs (or singles) of comparisons to make
+pcapair1=("batch" "jar")
+pcapair2=("type" "tissue")
+pcapair3=("position")
+PCAPAIRS="${pcapair1};${pcapair2};${pcapair3}"
+
+# NCBI API key (if none, type "")
+NCBIAPI=""
