@@ -676,19 +676,14 @@ initproc() {
 
 
 
-### automatically generate removelists based on user-specified cutoffs
-listprep() {
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Automatically generating remove lists..."
-    
-    # create temporary folder for these processes
-    temp=${output}/temp
-    if [[ ! -d ${temp} ]]; then
-        mkdir ${temp}
-    fi
-    
+### estimate abundances and remove rRNA -- used in blocks 3 and 4
+estabund() {
+    thisname=$1
+    thisout=$2
+
     # create merge list
     skip="N"
-    chklog "listprep_transcripts_merged"
+    chklog "${thisname}_transcripts_merged"
     if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
         skip="Y"
     fi
@@ -696,18 +691,18 @@ listprep() {
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Merge transcripts (StringTie)"
         
         # create file to hold list of files to merge
-        touch ${temp}/mergelist.txt
-        ls -1 ${input}/*.gtf > ${temp}/mergelist.txt
+        touch ${thisout}/mergelist.txt
+        ls -1 ${input}/*.gtf > ${thisout}/mergelist.txt
 
         $STRINGTIE --merge -p $NUMCPUS \
-            -o ${temp}/stringtie_merged.gtf ${temp}/mergelist.txt
+            -o ${thisout}/stringtie_merged.gtf ${thisout}/mergelist.txt
         
-        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> listprep_transcripts_merged"
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> ${thisname}_transcripts_merged"
     fi
 
     ## estimate transcript abundance
     skip="N"
-    chklog "listprep_abundance_estimation_complete"
+    chklog "${thisname}_abundance_estimation_complete"
     if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
         skip="Y"
     fi
@@ -720,55 +715,59 @@ listprep() {
             sample="${sample##*/}"
             
             skip="N"
-            chklog "listprep_${sample}_abundance_estimated"
+            chklog "${thisname}_${sample}_abundance_estimated"
             if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
                 skip="Y"
             fi
             if [[ ${skip} == "N" ]]; then
             
-                if [ ! -d ${temp}/abund ]; then
-                    mkdir -p ${temp}/abund
+                if [ ! -d ${thisout}/abund ]; then
+                    mkdir -p ${thisout}/abund
                 fi
-                if [ ! -d ${temp}/abund/${sample} ]; then
-                    mkdir -p ${temp}/abund/${sample}
+                if [ ! -d ${thisout}/abund/${sample} ]; then
+                    mkdir -p ${thisout}/abund/${sample}
                 fi
                 
-                set +e # do not exit on errors from the next command
+                if [[ ${thisname} == "listprep" ]]; then
+                    set +e # do not exit on errors from the next command
+                fi
                 
-                $STRINGTIE -e -B -p $NUMCPUS -G ${temp}/stringtie_merged.gtf \
-                -o ${temp}/abund/${sample}/${sample}.gtf ${input}/${sample}.bam
+                $STRINGTIE -e -B -p $NUMCPUS -G ${thisout}/stringtie_merged.gtf \
+                -o ${thisout}/abund/${sample}/${sample}.gtf ${input}/${sample}.bam
                 
-                # handle cases where StringTie returns an error because the file is too small
-                status=$?
-                
-                set -e # return to default of exiting on any errors
-                
-                if [[ status > 0 ]]; then
-                    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> StringTie error: sample ${sample} will be removed from analysis"
-                    
-                    REMOVEALWAYS="${REMOVEALWAYS} ${sample}"
-                    
+                if [[ ${thisname} == "listprep" ]]; then
+                    # handle cases where StringTie returns an error because the file is too small
+                    status=$?
+
+                    set -e # return to default of exiting on any errors
+
+                    if [[ status > 0 ]]; then
+                        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> StringTie error: sample ${sample} will be removed from analysis"
+
+                        REMOVEALWAYS="${REMOVEALWAYS} ${sample}"
+
+                    fi
                 fi
 
-                echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> listprep_${sample}_abundance_estimated"
+                echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${thisname}_${sample}_abundance_estimated"
             fi
         done
         
-        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> listprep_abundance_estimation_complete"
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${thisname}_abundance_estimation_complete"
     fi
 
     # create transcript FASTA file
     skip="N"
-    chklog "listprep_transcriptome_complete"
+    chklog "${thisname}_transcriptome_complete"
     if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Generate fasta transcript file from .gtf"
         
-        $GFFREAD -w ${temp}/transcriptome.fa -g ${GENOME} ${temp}/stringtie_merged.gtf
+        $GFFREAD -w ${thisout}/transcriptome.fa -g ${GENOME} ${thisout}/stringtie_merged.gtf
         
-        echo  [`date +"%Y-%m-%d %H:%M:%S"`] "#> listprep_transcriptome_complete"
+        echo  [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${thisname}_transcriptome_complete"
     fi
 
     ### BLAST against ribosomal database
@@ -790,25 +789,25 @@ listprep() {
 
     # BLAST rRNA database
     skip="N"
-    chklog "listprep_rrna_blast_complete"
+    chklog "${thisname}_rrna_blast_complete"
     if [[ ${chkresult} == "Y" && -d ${databases}/rrnadb ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Query rRNA database with transcroptome (BLASTN)"
 
-        $BLASTNAPP -query ${temp}/transcriptome.fa \
+        $BLASTNAPP -query ${thisout}/transcriptome.fa \
             -db ${databases}/rrnadb \
-            -out ${temp}/rrna_blastn_results.csv \
+            -out ${thisout}/rrna_blastn_results.csv \
             -evalue 1e-6 -num_threads ${NUMCPUS} \
             -num_alignments 1 -outfmt "6 qseqid stitle sacc evalue pident bitscore length qstart qend sstart send"
             
-        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> listprep_rrna_blast_complete"
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${thisname}_rrna_blast_complete"
     fi
 
     ## remove matched transcripts from ctab files
     skip="N"
-    chklog "listprep_rRNA_removed"
+    chklog "${thisname}_rRNA_removed"
     if [[ ${chkresult} == "Y" && -d ${databases}/rrnadb ]]; then
         skip="Y"
     fi
@@ -817,32 +816,57 @@ listprep() {
 
         # save a copy of the original tables in a new folder
         skip="N"
-        chklog "listprep_ctabs_copied"
+        chklog "${thisname}_ctabs_copied"
         if [[ ${chkresult} == "Y" && -d ${databases}/rrnadb ]]; then
             skip="Y"
         fi
         if [[ ${skip} == "N" ]]; then
             echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Save a copy of original expression tables"
 
-            if [[ -d ${temp}/rrna_free ]]; then
+            if [[ -d ${thisout}/rrna_free ]]; then
                 # we want the contents of /abund to be copied to /rrna_free
                 # if /rrna_free exists, cp will instead copy /abund to /rrna_free/abund
                 # to simplify the process, remove /rrna_free, if it exists
-                emptydir ${temp}/rrna_free
-                rm ${temp}/rrna_free
+                emptydir ${thisout}/rrna_free
+                rm ${thisout}/rrna_free
             fi
             
-            cp -R ${temp}/abund ${temp}/rrna_free
+            cp -R ${thisout}/abund ${thisout}/rrna_free
             
-            echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> listprep_ctabs_copied"
+            echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${thisname}_ctabs_copied"
         fi
 
         # use R script to remove rRNA and overwrite the .ctab files
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Remove rRNA from expression tables (R)"
 
-        Rscript ${REMOVERRNA} ${temp}/blastn_results.csv ${temp}/rrna_free ${LOGDIR} "listprep"
+        Rscript ${REMOVERRNA} ${thisout}/blastn_results.csv ${thisout}/rrna_free ${LOGDIR} ${thisname}
         
-        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> listprep_rRNA_removed"
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${thisname}_rRNA_removed"
+    fi
+    
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${thisname}_estabund_complete"
+}
+
+
+
+### automatically generate removelists based on user-specified cutoffs
+listprep() {
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Automatically generating remove lists..."
+    
+    # create temporary folder for these processes
+    temp=${output}/temp
+    if [[ ! -d ${temp} ]]; then
+        mkdir ${temp}
+    fi
+    
+    ## estimate abundance and remove rRNA
+    skip="N"
+    chklog "listprep_estabund_complete"
+    if [[ ${chkresult} == "Y" && -d ${databases}/rrnadb ]]; then
+        skip="Y"
+    fi
+    if [[ ${skip} == "N" ]]; then
+        estabund "listprep" ${temp}
     fi
     
     ## for each auto remove list, add samples to that list that are below the cutoff and add any REMOVEALWAYS samples
@@ -892,9 +916,13 @@ listprep() {
     fi
     
     # end-of-block file management: move transcript_counts.csv to destination and remove /temp
-    mv ${temp}/transcript_counts.csv ${DESTDIR}
-    emptydir ${temp}
-    rm ${temp}
+    if [[ -f ${temp}/transcript_counts.csv ]]; then
+        mv ${temp}/transcript_counts.csv ${DESTDIR}/transcript_counts.csv
+    fi
+    if [[ -d ${temp} ]]; then
+        emptydir ${temp}
+        rm ${temp}
+    fi
     
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> listprep_complete"
 }
@@ -909,38 +937,36 @@ mojo() {
     
     analysis=${DESTDIR}/analysis
     destination=${DESTDIR}/analysis/${setname}
-    exprdest=${destination}/expression_tables
-    thisinput=${input}/${setname}
-    direcs=("${analysis}" "${destination}" "${exprdest}" "${thisinput}")
+    mojoinput=${input}/${setname}
+    direcs=("${analysis}" "${destination}" "${mojoinput}")
     
     # file management strategy
-        # merge files, est abundance, create transcriptome
+        # merge files, est abundance, create transcriptome, remove rRNA
             # do in output/abundances
+            # store abundances in output/abundances/abund
+            # store removed rRNA abundances in output/abundances/rrna_free
             # move tome to destination/products
-            # move rest to destination/expression_tables/raw_abundances
+            # move count file to destination/calculations
+            # move abund to destination/calculations/raw_abundances
+            # move rrna_free to destdir/calculations/rrna_removed
     abundances=${output}/abundances
     productdest=${destination}/products
-    direcs+=("${abundances}" "${productdest}")
-        # remove rrna
-            # do in output/rrna
-            # move all to destdir/expression_tables/rrna_removed
-    rrnaout=${output}/rrna
-    rrnadest=${destination}/expression_tables/rrna_removed
-    direcs+=("${rrnaout}" "${rrnadest}")
-    # copy adjusted ctab files to thisinput/abund
-    # copy tome to thisinput
-    # move files from output as described above
-    thisinabund=${thisinput}/abund
-    direcs+=("${thisinabund}")
+    calcdest=${destination}/calculations
+    abunddest=${destination}/calculations/raw_abundances
+    rrnadest=${destination}/calculations/rrna_removed
+    direcs+=("${abundances}" "${productdest}" "${calcdest}" "${abunddest}" "${rrnadest}")
         # busco test
-            # do in output/busco
-            # move busco output to destdir/products
-            # move remaining to destdir/calculations/busco
-    buscoout=${output}/${busco}
-    calc=${destination}/calculations
+            # must be done in output/abundances
+            # copy output/abundances/busco_output_enoki*/short_summary*.txt to destdir/products/short_summary*.txt
+            # move output/abundances/busco_* to destination/calculations/busco/busco_*
     buscodest=${destination}/calculations/busco
-    direcs+=("${buscoout}" "${calc}" "${buscodest}")
+    direcs+=("${buscodest}")
+    # copy rrna_removed directories to mojoinput/abund
+    # copy tome to mojoinput
+    # move files from output as described above
     # move busco files from output as described above
+    mojoinabund=${mojoinput}/abund
+    direcs+=("${mojoinabund}")
         # ballgown
             # do in output/ballgown
             # move PCA plots to destdir/products/plots
@@ -971,157 +997,100 @@ mojo() {
     godest=${destination}/products/go
     direcs+=("${pantherout}" "${pantherdest}" "${godest}")
     # move files from output as described above
-    # empty and delete thisinput
+    # empty and delete mojoinput
     
-    for direc in ${direcs[@]}; do
-        if [[ ! -d ${direcs} ]]; then
+    # file location for anything I forgot to add to this strategy
+    otherdest=${destination}/other
+    direcs+=("${otherdest}")
+    
+    for direc in ${direcs}; do
+        if [[ ! -d ${direc} ]]; then
             mkdir ${direc}
         fi
     done
     
     
-    # create merge list
+    ### estimate abundances and remove rRNA
     skip="N"
-    chklog "${setname}_transcripts_merged"
-    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+    chklog "${setname}_estabund_complete"
+    if [[ ${chkresult} == "Y" && -d ${databases}/rrnadb ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
-        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Merge selected transcripts (StringTie)"
+    
+        estabund ${setname} ${abundances}
         
-        # create file to hold list of files to merge
-        touch ${output}/mergelist.txt
-        ls -1 ${input}/*.gtf > ${output}/${setname}_mergelist.txt
-        
-        # remove lines from transcript list that match samples in the removelist
-        for removestr in ${removelist}; do
-            grep -v -- ${removestr} ${output}/${setname}_mergelist.txt > ${output}/temp.txt
-            mv ${output}/temp.txt ${output}/${setname}_mergelist.txt
-        done
-
-        $STRINGTIE --merge -p $NUMCPUS \
-            -o ${BALLGOWNLOC}/stringtie_merged.gtf ${output}/${setname}_mergelist.txt
-        
-        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> ${setname}_transcripts_merged"
     fi
-
-    ## estimate transcript abundance
-    skip="N"
-    chklog "${setname}_abundance_estimation_complete"
-    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
-        skip="Y"
-    fi
-    if [[ ${skip} == "N" ]]; then
-        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Estimate abundance for each sample (StringTie)"
-        
-        for ((i=0; i<=${#reads1[@]}-1; i++ )); do
-            sample="${reads1[$i]%%.*}"
-            dsample="${sample%_L001*}" ####################################### might not need to do this
-            sample="${sample%_L001*}" ######################################## might not need to do this
-            
-            skip="N"
-            chklog "${setname}_${sample}_abundance_estimated"
-            if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
-                skip="Y"
-            fi
-            if [[ ${skip} == "N" ]]; then
-
-                # if the sample name matches anything in the current removelist, skip that sample
-                remove="F"
-                for removestr in ${removelist}; do
-                    if [[ "${sample}" == *"${removestr}"* ]]; then
-                        remove="T"
-                    fi
-                done
-                if [ "${remove}" == "F" ]; then
-                    if [ ! -d ${BALLGOWNLOC}/${dsample} ]; then
-                        mkdir -p ${BALLGOWNLOC}/${dsample}
-                    fi
-                    
-                    $STRINGTIE -e -B -p $NUMCPUS -G ${BALLGOWNLOC}/stringtie_merged.gtf \
-                    -o ${BALLGOWNLOC}/${dsample}/${dsample}.gtf ${ALIGNLOC}/${sample}.bam
-                    
-                    echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> ${setname}_${sample}_abundance_estimated"
-                fi
-            fi
-        done
-        
-        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> ${setname}_abundance_estimation_complete"
-    fi
-
-    # create transcript FASTA file
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Generate fasta transcript file from .gtf"
-    ## note: hard to find genome using index location, so whole path is typed out
-    $GFFREAD -w ${BALLGOWNLOC}/fv_transcriptome.fa -g /Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/genome_assemblies_all_files/ncbi-genomes-2021-11-01/GCA_011800155.1_ASM1180015v1/GCA_011800155.1_ASM1180015v1_genomic.fna ${BALLGOWNLOC}/stringtie_merged.gtf
-
-    ### BLAST against ribosomal database
-
-    # make rRNA database
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Create rRNA database (makeblastdb)"
-
-    $BLASTDIR/makeblastdb -in ${RRNAFILE} -out ${RRNADIR}/ncbi_rrna_fungi -dbtype nucl
-
-    # BLAST rRNA database
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Query rRNA database with transcroptome (BLASTN)"
-
-    $BLASTNAPP -query ${BALLGOWNLOC}/fv_transcriptome.fa \
-        -db ${RRNADIR}/ncbi_rrna_fungi \
-        -out ${RRNADIR}/blastn_results.csv \
-        -evalue 1e-6 -num_threads ${NUMCPUS} \
-        -num_alignments 1 -outfmt "6 qseqid stitle sacc evalue pident bitscore length qstart qend sstart send"
-
-    ## remove matched transcripts from ctab files
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Removing rRNA..."
-
-    # save a copy of the original tables in a new folder
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Save a copy of original expression tables"
-
-    for direc in ${BALLGOWNLOC}/ROEHL-FV-*/; do
-        for table in ${direc}*.ctab; do
-            if [[ ! -d ${direc}original_tables ]]; then
-                mkdir ${direc}original_tables
-            fi
-            basename=${table##*/}
-            # restore original files -- do on every rerun
-            if [[ -f ${direc}original_tables/${basename} ]]; then
-                cp ${direc}/original_tables/${basename} ${table}
-            fi
-            # save original files -- do on only first run
-            if [[ ! -f ${direc}original_tables/${basename} ]]; then
-                cp ${table} ${direc}original_tables/${basename}
-            fi
-        done
-    done
-
-    # use R script to remove rRNA and overwrite the .ctab files (leaving originals in subdirectories)
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Remove rRNA from expression tables (R)"
-
-    if [ ! -d ${OUTDIR}/R_logs/ ]; then
-        mkdir ${OUTDIR}/R_logs
-    fi
-
-    Rscript ${REMOVERRNA} ${RRNADIR}/blastn_results.csv ${BALLGOWNLOC} ${LOGDIR} ${setname}
-
+    
 
     ### busco completeness test
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Testing Busco completeness..."
 
-    busconame="busco_output_fv"
+    busconame="busco_output_enoki"
 
     if [[ -d ${BALLGOWNLOC}/${busconame} ]]; then
-        busconame="busco_output_fv_"`date +"%Y-%m-%d_%H-%M-%S"`
+        busconame="busco_output_enoki_"`date +"%Y-%m-%d_%H-%M-%S"`
     fi
 
-    docker run -u $(id -u) -v ${BALLGOWNLOC}/:/busco_wd/ ezlabgva/busco:v4.1.4_cv1 busco \
+    docker run -u $(id -u) -v ${abundances}:/busco_wd/ ezlabgva/busco:v4.1.4_cv1 busco \
         --mode transcriptome \
-        --in /busco_wd/fv_transcriptome.fa \
+        --in /busco_wd/transcriptome.fa \
         --out ${busconame} \
-        --lineage_dataset agaricales_odb10
+        --lineage_dataset ${BUSCODATASET}
     # note: -v [specify complete file path where you want busco to live]:/busco_wd/
     # note: the working directory (specified in -v) must be /busco_wd/
-    # note: all file paths (except in -v) must be relative to the image root directory. In this case, -v maps the image root (/busco_wd/) to ${BALLGOWNLOC}/ . As a result, the transcriptome file must be referenced as /busco_wd/fv_transcriptome.fa because it is found in ${BALLGOWNLOC}/fv_transcriptome.fa
-    # note: --out file must have a name that has never been used for a busco run. Ex: busco was previously run on the same machine with "--out busco_output" so this run must use a new name, "--out busco_output_fv"
+    # note: all file paths (except in -v) must be relative to the image root directory. In this case, -v maps the image root (/busco_wd/) to ${abundances}/ . As a result, the transcriptome file must be referenced as /busco_wd/transcriptome.fa because it is found in ${abundances}/transcriptome.fa
+    # note: --out file must have a name that has never been used for a busco run. Ex: busco was previously run on the same machine with "--out busco_output" so this run must use a new name, "--out busco_output_enoki"
     # note: if script must be run more than once, delete the output directories before running OR make sure to run the busconame if statement above
+    
+    
+    
+    ## file management
+    skip="N"
+    chklog "${setname}_mojo_files_1_complete"
+    if [[ ${chkresult} == "Y" && -d ${databases}/rrnadb ]]; then
+        skip="Y"
+    fi
+    if [[ ${skip} == "N" ]]; then
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Performing file management..."
+
+        # transcriptome
+        if [[ -f ${abundances}/transcriptome.fa ]]; then
+            cp ${abundances}/transcriptome.fa ${mojoinput}/transcriptome.fa
+            mv ${abundances}/transcriptome.fa ${destination}/products/transcriptome.fa
+        fi
+        # BUSCO results
+        buscoresult=${output}/abundances/${busconame}/short_summary*.txt
+        buscoresultname=${buscoresult##*/}
+        if [[ -f ${buscoresult} ]]; then
+            cp ${buscoresult} ${productdest}/BUSCO_${buscoresultname}
+        fi
+        # BUSCO calculations
+        for dir in ${output}/abundances/busco_*; do
+            mv -t ${buscodest} ${dir} 
+        done
+        # raw abundances
+        if [[ -d ${abundances}/abund ]]; then
+            mv ${abundances}/abund ${calcdest}/raw_abundances
+        fi
+        # rRNA removed abundances
+        if [[ -d ${abundances}/rrna_free ]]; then
+            mv ${abundances}/rrna_free ${calcdest}/rrna_removed
+        fi
+        # anything else that might be left in output/abundances
+        for file in ${abundances}/*; do
+            mv -t ${otherdest} file
+        done
+        # delete output/abundances
+        if [[ -d ${abundances} ]]; then
+            emptydir ${abundances}
+            rm ${abundances}
+        fi
+        
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> ${setname}_mojo_files_1_complete"
+    fi
+
+
 
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Generate the DE tables (Ballgown)"
 
