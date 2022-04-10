@@ -2,18 +2,26 @@
 RNA-seq analysis pipeline (HISAT2, StringTie, Ballgown, heatmaps, bar plots, Gene Ontology) used during enoki transcriptome research
 
 External Requirements:
-FastQC
-fqtrim
-trimmomatic
-HISAT2
-StringTie
-samtools
-gffread
-Ballgown
-BLAST+ suite
-Docker
-BUSCO
-PantherScore
+  FastQC
+  fqtrim
+  trimmomatic
+  HISAT2
+  StringTie
+  samtools
+  gffread
+  BLAST+ suite
+  Docker
+  PantherScore and libraries
+  R Libraries:
+    ballgown
+    devtools
+    genefilter
+    dplyr
+    ggplot2
+    ggrepel
+  Python Modules:
+    biopython
+    pandas
 
 Inputs:
 demultiplexed Illumina sequences
@@ -21,9 +29,11 @@ reference genome
 csv file with phenotypic data for each sample
 
 Outputs:
+FastQC files
+BUSCO summary
 PCA plots
 named lists of differentially expressed genes
-heatmaps
+heatmaps/barplots
 PANTHER mappings for GO analysis
 
 
