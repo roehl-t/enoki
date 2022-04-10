@@ -31,11 +31,20 @@ USEUNPAIRED=Y
 WRKDIR=
 
 # final directory -- where the files should go for storage
+  ## must have a different name than the working directory
 DESTDIR=
 
 #how many CPUs to use on the current machine?
 NUMCPUS=6
 
+
+#### Other Options
+
+# BUSCO dataset name -- what taxonomic group should be used as the BUSCO dataset (see instructions BUSCO's website)?
+BUSCODATASET="agaricales_odb10"
+
+# NCBI API key
+NCBIAPI=
 
 #### Program paths ####
 #if these programs are not in any PATH directories, please edit accordingly:
