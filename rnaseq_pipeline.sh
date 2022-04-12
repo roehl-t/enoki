@@ -1241,80 +1241,153 @@ mojo() {
 
 
      ## generate heat maps or bar plots
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Creating Heat Maps and/or Bar Plots"
+    skip="N"
+    chklog "${setname}_plots_complete"
+    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+        skip="Y"
+    fi
+    if [[ ${skip} == "N" ]]; then
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Creating Heat Maps and/or Bar Plots"
 
-    for resultfile in ${protout}/named/*_expr.csv; do
-        basename=${resultfile##*/}
-        base=${basename%.csv}
-       
-        # map all genes
-        Rscript ${HEATMAP} ${resultfile} ${PHENODATA} ${plotsout}/${base}_heatmap_all.pdf "all" "all" "all" "F" ${LOGLOC}
-        
-        # some sets may not include the features of interest and could therefore return an error, but keep running anyway
-        set +e
-        
-        # map specific genes
-        for ((k=0; k<=${#MAPGENELISTS[@]}-1; k++)); do
-               Rscript ${HEATMAP} ${resultfile} ${PHENODATA} ${plotsout}/${base}_heatmap_genes_${k}.pdf ${MAPGENELISTS[k]} "all" "all" "F" ${LOGLOC}
+        for resultfile in ${protout}/named/*_expr.csv; do
+            basename=${resultfile##*/}
+            base=${basename%.csv}
+
+            
+            skip="N"
+            chklog "${setname}_all_heatmap_complete"
+            if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+                skip="Y"
+            fi
+            if [[ ${skip} == "N" ]]; then
+                # map all genes
+                Rscript ${HEATMAP} ${resultfile} ${PHENODATA} ${plotsout}/${base}_heatmap_all.pdf "all" "all" "all" "F" ${LOGLOC}
+                
+                echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_all_heatmap_complete"
+            fi
+
+            # some sets may not include the features of interest and could therefore return an error, but keep running anyway
+            set +e
+
+            skip="N"
+            chklog "${setname}_gene_plots_complete"
+            if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+                skip="Y"
+            fi
+            if [[ ${skip} == "N" ]]; then
+                # map specific genes
+                for ((k=0; k<=${#MAPGENELISTS[@]}-1; k++)); do
+                       Rscript ${HEATMAP} ${resultfile} ${PHENODATA} ${plotsout}/${base}_heatmap_genes_${k}.pdf ${MAPGENELISTS[k]} "all" "all" "F" ${LOGLOC}
+                done
+                echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_gene_plots_complete"
+            fi
+
+            skip="N"
+            chklog "${setname}_organism_plots_complete"
+            if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+                skip="Y"
+            fi
+            if [[ ${skip} == "N" ]]; then
+                # map genes from specific organisms
+                for ((k=0; k<=${#MAPORGLISTS[@]}-1; k++)); do
+                       Rscript ${HEATMAP} ${resultfile} ${PHENODATA} ${plotsout}/${base}_heatmap_orgs_${k}.pdf "all" "all" ${MAPORGLISTS[k]} "F" ${LOGLOC}
+                done
+                echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_organism_plots_complete"
+            fi
+
+            skip="N"
+            chklog "${setname}_sample_plots_complete"
+            if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+                skip="Y"
+            fi
+            if [[ ${skip} == "N" ]]; then
+                # map specific samples
+                for ((k=0; k<=${#MAPSAMPLELISTS[@]}-1; k++)); do
+                       Rscript ${HEATMAP} ${resultfile} ${PHENODATA} ${plotsout}/${base}_heatmap_samples_${k}.pdf "all" ${MAPSAMPLELISTS[k]} "all" "F" ${LOGLOC}
+                done
+                echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_sample_plots_complete"
+            fi
+
+            # reset default behavior of exiting on errors
+            set -e
+
         done
-       
-        # map genes from specific organisms
-        for ((k=0; k<=${#MAPORGLISTS[@]}-1; k++)); do
-               Rscript ${HEATMAP} ${resultfile} ${PHENODATA} ${plotsout}/${base}_heatmap_orgs_${k}.pdf "all" "all" ${MAPORGLISTS[k]} "F" ${LOGLOC}
-        done
-       
-        # map specific samples
-        for ((k=0; k<=${#MAPSAMPLELISTS[@]}-1; k++)); do
-               Rscript ${HEATMAP} ${resultfile} ${PHENODATA} ${plotsout}/${base}_heatmap_samples_${k}.pdf "all" ${MAPSAMPLELISTS[k]} "all" "F" ${LOGLOC}
-        done
         
-        # reset default behavior of exiting on errors
-        set -e
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_plots_complete"
+    fi
+    
+    
+    ## file management
+    skip="N"
+    chklog "${setname}_mojo_files_2_complete"
+    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+        skip="Y"
+    fi
+    if [[ ${skip} == "N" ]]; then
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Performing file management..."
         
-    done
+        # copy needed files to new input folder
+        mojogoin=${input}/mojogo
+        if [[ ! -d ${mojogoin} ]]; then
+            mkdir ${mojogoin}
+        fi
+        mv ${mojoinput}/transcriptome.fa ${mojogoin}/transcriptome.fa
+        cp -t ${mojogoin} ${protout}/named/*.csv
+        
+        # move output files to destinations
+        
+        
+        # in case anything was forgotten, move it to the "other" folder
+        
+        
+        # remove mojoinput folder
+        
+        
+        # remove output folders
+        
+        
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> ${setname}_mojo_files_2_complete"
+    fi
     
     
     ## GO analysis
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Generating tables for GO analysis..."
-
-    if [[ ! -d ${BALLGOWNLOC}/panther ]]; then
-        mkdir ${BALLGOWNLOC}/panther
-    fi
-    if [[ ! -d ${BALLGOWNLOC}/panther/output ]]; then
-        mkdir ${BALLGOWNLOC}/panther/output
-    fi
 
     # for each DEG list and reference list...
     
     # PantherScore won't work unless the working directory is the directory that contains PantherScore and the program's lib folder
     cd ${PANTHERSCORE%/*}
 
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Converting UniProtKB IDs to FASTA..."
-    # for each named protein, get the NCBI Protein database sequence and add it to a FASTA file
-    python3 ${UNIPROTFASTA} ${BALLGOWNLOC}/panther/tome_ncbi_list.csv ${BALLGOWNLOC}/panther/tome_fasta.fa "" ${UNIPROTDIR}/${setname}_tome_blastx_results_readable.csv
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Running PantherScore..."
-    # score FASTA file against PANTHER HMMs to map to PANTHER IDs
-    perl ${PANTHERSCORE} -l ${PANTHERLIBDIR} -D B -i ${BALLGOWNLOC}/panther/tome_fasta.fa -o ${BALLGOWNLOC}/panther/output/tome_panther_mapping.txt -n -s
+    #######################################################
+    # shouldn't need to do because the full transcriptome is included in deglists
+    #echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Converting UniProtKB IDs to FASTA..."
+    ## for each named protein, get the NCBI Protein database sequence and add it to a FASTA file
+    #python3 ${UNIPROTFASTA} ${pantherout}/tome_ncbi_list.csv ${pantherout}/tome_fasta.fa ${NCBIAPI} ${mojogoin}/${setname}_tome_blastx_results_readable.csv
+    #
+    #echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Running PantherScore..."
+    ## score FASTA file against PANTHER HMMs to map to PANTHER IDs
+    #perl ${PANTHERSCORE} -l ${PANTHERLIBDIR} -D B -i ${pantherout}/tome_fasta.fa -o ${pantherout}/tome_panther_mapping.txt -n -s
 
-    for deglist in ${BALLGOWNLOC}/bg_output/named/*_expr.csv; do
+    for deglist in ${protout}/named/*_expr.csv; do
         base=${deglist##*/}
         basename=${base%.csv}
         echo "Current list: ${basename}"
 
         # for each named protein, get the NCBI Protein database sequence and add it to a FASTA file
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Converting UniProtKB IDs to FASTA..."
-        python3 ${UNIPROTFASTA} ${BALLGOWNLOC}/panther/${basename}_ncbi_list.csv ${BALLGOWNLOC}/panther/${basename}_fasta.fa "" ${deglist}
+        python3 ${UNIPROTFASTA} ${pantherout}/${basename}_ncbi_list.csv ${pantherout}/${basename}_fasta.fa "" ${deglist}
+        
         # score FASTA file against PANTHER HMMs to map to PANTHER IDs
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Running PantherScore..."
-        perl ${PANTHERSCORE} -l ${PANTHERLIBDIR} -D B -i ${BALLGOWNLOC}/panther/${basename}_fasta.fa -o ${BALLGOWNLOC}/panther/output/${basename}_panther_mapping.csv -n -s
+        perl ${PANTHERSCORE} -l ${PANTHERLIBDIR} -D B -i ${pantherout}/${basename}_fasta.fa -o ${pantherout}/${basename}_panther_mapping.csv -n -s
             # output is tab-delimited: sequence ID, panther acc, panther family/subfamily, HMM e-value, HMM bitscore, alignment range
         
         # map PANTHER IDs to fpkm tables
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Matching PANTHER IDs to FPKM tables..."
-        if [ ! -f ${BALLGOWNLOC}/panther/output/${basename} ]; then
-            mkdir ${BALLGOWNLOC}/panther/output/${basename}
+        if [[ ! -d ${pantherout}/final/${basename} ]]; then
+            mkdir ${pantherout}/final/${basename}
         fi
-        Rscript ${PANTHERFPKM} ${deglist} ${BALLGOWNLOC}/panther/output/${basename}_panther_mapping.csv ${BALLGOWNLOC}/panther/${basename}_ncbi_list.csv ${PHENODATA} "ROEHL,myc,sti,pil,gil,you,pri,cul,nor" ${basename}_panther_mapping ${BALLGOWNLOC}/panther/output/${basename}
+        Rscript ${PANTHERFPKM} ${deglist} ${pantherout}/${basename}_panther_mapping.csv ${pantherout}/${basename}_ncbi_list.csv ${PHENODATA} "ROEHL,myc,sti,pil,gil,you,pri,cul,nor" ${basename}_panther_mapping ${pantherout}/final/${basename}
     done
     
     cd ${WRKDIR}
