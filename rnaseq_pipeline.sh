@@ -58,7 +58,7 @@ chklog() {
     set +e
     nmatch=$(grep -c $1 ${LOGFILE})
     chkresult="F"
-    if [[ nmatch > 0 ]]; then
+    if (( nmatch > 0 )); then
         chkresult="T"
     fi
     set -e
@@ -69,11 +69,12 @@ chklog() {
 ### check programs required for each function block
     # when used, add an argument for block number
 chkprog() {
-
+    
+    blockno=$1
     errprog=""
     
     # programs for first block (initqc)
-    if [[ $1 == 1 ]]; then
+    if [[ ${blockno} == 1 ]]; then
 
         if [[ ! -x $FASTQC ]]; then
             errprog="FastQC"
@@ -90,7 +91,7 @@ chkprog() {
     fi
     
     # programs for second block (initproc)
-    if [[ $1 == 2 ]]; then
+    if [[ ${blockno} == 2 ]]; then
         if [[ ! -x $SAMTOOLS ]]; then
             errprog="samtools"
         else
@@ -106,7 +107,7 @@ chkprog() {
     fi
     
     # programs for third block (listprep)
-    if [[ $1 == 4 ]]; then
+    if [[ ${blockno} == 3 ]]; then
 
         if [[ ! -x $STRINGTIE ]]; then
             errprog="stringtie"
@@ -123,7 +124,7 @@ chkprog() {
     fi
     
     # programs for fourth block (mojo)
-    if [[ $1 == 4 ]]; then
+    if [[ ${blockno} == 4 ]]; then
 
         if [[ ! -x $STRINGTIE ]]; then
             errprog="stringtie"
@@ -214,7 +215,7 @@ initqc() {
     
     ## concatenate files from multiple runs if needed
     newdatadir=${DATADIR}
-    if [[ ${#SEQBATCHES[@]} > 1 ]]; then
+    if (( ${#SEQBATCHES[@]} > 1 )); then
         newdatadir=${output}/concatenate
     fi
     
@@ -224,7 +225,7 @@ initqc() {
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
-        if [[ ${#SEQBATCHES[@]} > 1 ]]; then
+        if (( ${#SEQBATCHES[@]} > 1 )); then
 
             # create new folder for concatenation
             if [[ ! -d ${newdatadir} ]]; then
@@ -743,7 +744,7 @@ estabund() {
 
                     set -e # return to default of exiting on any errors
 
-                    if [[ status > 0 ]]; then
+                    if (( status > 0 )); then
                         echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> StringTie error: sample ${sample} will be removed from analysis"
 
                         REMOVEALWAYS="${REMOVEALWAYS} ${sample}"
@@ -1436,6 +1437,8 @@ mojo() {
 
 ## load variables
 SCRIPTARGS="$@"
+cd ${WRKDIR}
+
 if [[ ! -f ${SCRIPTARGS[0]} ]]; then
     usage
     echo "Error: configuration file (rnaseq_pipeline.config.sh) missing or not included as argument in command line!"
@@ -1478,8 +1481,8 @@ input=${WRKDIR}/input
 output=${WRKDIR}/output
 databases=${WRKDIR}/databases
 checkfolders=("${input}" "${output}" "${databases}")
-for chkfldr in checkfolders; do
-    if [[ -d chkfldr ]]; then
+for chkfldr in ${checkfolders}; do
+    if [[ -d ${chkfldr} ]]; then
         fldrname=${chkfldr##*/}
         echo "A folder named ${fldrname} already exists in the working location. If you continue, its files will be deleted. Continue anyway? (Y/N)"
         read continueanyway
