@@ -205,7 +205,7 @@ initqc() {
                 skip="Y"
             fi
             if [[ ${skip} == "N" ]]; then
-                ${fastqc_app} -t ${NCPUS} -o ${output}/fastqc/raw ${seqfile}
+                java -jar ${FASTQC} -t ${NUMCPUS} -o ${output}/fastqc/raw ${seqfile}
                 echo ${output}/fastqc/raw/${seqfile##*/}
             fi
         done
@@ -286,7 +286,7 @@ initqc() {
                 skip="Y"
             fi
             if [[ ${skip} == "N" ]]; then
-                 java -jar ${TRIMMOMATIC} PE -threads ${NCPUS} -trimlog ${LOGLOC}/trimmomatic_trimlog.txt -basein ${filename} -baseout ${output}/trimmomatic/${basename}.fq ILLUMINACLIP:${TRIMMOMATICADAPTERS}:2:30:10 SLIDINGWINDOW:4:20 MINLEN:50
+                 java -jar ${TRIMMOMATIC} PE -threads ${NUMCPUS} -trimlog ${LOGLOC}/trimmomatic_trimlog.txt -basein ${filename} -baseout ${output}/trimmomatic/${basename}.fq ILLUMINACLIP:${TRIMMOMATICADAPTERS}:2:30:10 SLIDINGWINDOW:4:20 MINLEN:50
                  
                  echo ${output}/trimmomatic/${basename}_2U.fq
              fi
@@ -320,7 +320,7 @@ initqc() {
             fi
             if [[ ${skip} == "N" ]]; then
             
-                ${FQTRIM} -l 30 -p ${NCPUS} -D -o fqtrimmed.fq --outdir ${output}/fqtrim1 -r ${LOGLOC}/fqtrimlog1p.txt ${readpair}
+                ${FQTRIM} -l 30 -p ${NUMCPUS} -D -o fqtrimmed.fq --outdir ${output}/fqtrim1 -r ${LOGLOC}/fqtrimlog1p.txt ${readpair}
                 
                 echo ${readpair}
             fi
@@ -348,7 +348,7 @@ initqc() {
                 fi
                 if [[ ${skip} == "N" ]]; then
 
-                    ${FQTRIM} -l 30 -p ${NCPUS} -D -o fqtrimmed.fq --outdir ${output}/fqtrim1 -r ${LOGLOC}/fqtrimlog1u.txt ${file}
+                    ${FQTRIM} -l 30 -p ${NUMCPUS} -D -o fqtrimmed.fq --outdir ${output}/fqtrim1 -r ${LOGLOC}/fqtrimlog1u.txt ${file}
 
                     echo ${output}/fqtrim1/${file}
                 fi
@@ -380,7 +380,7 @@ initqc() {
             fi
             if [[ ${skip} == "N" ]]; then
             
-                ${FASTQC} -t ${NCPUS} -o ${output}/fastqc/trim1 ${seqfile}
+                ${FASTQC} -t ${NUMCPUS} -o ${output}/fastqc/trim1 ${seqfile}
                 echo ${output}/fastqc/trim1/${seqfile##*/}
                 
             fi
@@ -414,7 +414,7 @@ initqc() {
             fi
             if [[ ${skip} == "N" ]]; then
 
-                ${FQTRIM} -l 30 -p ${NCPUS} -D -o 2.fq --outdir ${output}/fqtrim2 -r ${LOGLOC}/fqtrimlog2p.txt ${seqfile}
+                ${FQTRIM} -l 30 -p ${NUMCPUS} -D -o 2.fq --outdir ${output}/fqtrim2 -r ${LOGLOC}/fqtrimlog2p.txt ${seqfile}
                 echo ${output}/fqtrim2/${seqfile##*/}
                 
             fi
@@ -445,7 +445,7 @@ initqc() {
             fi
             if [[ ${skip} == "N" ]]; then
             
-                ${FASTQC} -t ${NCPUS} -o ${output}/fastqc/trim2 ${seqfile}
+                ${FASTQC} -t ${NUMCPUS} -o ${output}/fastqc/trim2 ${seqfile}
                 echo ${output}/fastqc/trim2/${seqfile##*/}
                 
             fi
