@@ -242,7 +242,7 @@ initqc() {
                     skip="Y"
                 fi
                 if [[ ${skip} == "N" ]]; then
-                    for (i = 0; i < ${#SEQBATCHES[@]}; i++); do
+                    for ((i=0; i<${#SEQBATCHES[@]}; i++)); do
                         # find 0th seq batch pattern and replace with ith seq batch pattern to retrieve next file in the sample, then append to concatenation file
                         nextfile=${seqfile/"${SEQBATCHES[0]}"/"${SEQBATCHES[i]}"}
                         cat ${nextfile} >> ${newdatadir}/${basename}
