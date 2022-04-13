@@ -1138,7 +1138,7 @@ mojo() {
         # create BLAST database
         skip="N"
         chklog "protein_db_created"
-        if [[ ${chkresult} == "Y" && -d  ]]; then
+        if [[ ${chkresult} == "Y" ]]; then
             skip="Y"
         fi
         if [[ ${skip} == "N" ]]; then
