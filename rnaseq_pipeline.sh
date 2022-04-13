@@ -205,7 +205,7 @@ initqc() {
                 skip="Y"
             fi
             if [[ ${skip} == "N" ]]; then
-                java -jar ${FASTQC} -t ${NUMCPUS} -o ${output}/fastqc/raw ${seqfile}
+                ${FASTQC} -t ${NUMCPUS} -o ${output}/fastqc/raw ${seqfile}
                 echo ${output}/fastqc/raw/${seqfile##*/}
             fi
         done
