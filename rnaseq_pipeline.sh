@@ -55,11 +55,13 @@ emptydir() {
     # pass paramater of the entry you want to check
     # stores result as "T" or "F" in variable chkresult
 chklog() {
+    set +e
     nmatch=$(grep -c $1 ${LOGFILE})
     chkresult="F"
     if [[ nmatch > 0 ]]; then
         chkresult="T"
     fi
+    set -e
 }
 
 
@@ -1434,12 +1436,12 @@ mojo() {
 
 ## load variables
 SCRIPTARGS="$@"
-if [[ ! -f ${SCRIPTARGS[1]} ]]; then
+if [[ ! -f ${SCRIPTARGS[0]} ]]; then
     usage
     echo "Error: configuration file (rnaseq_pipeline.config.sh) missing or not included as argument in command line!"
     exit 1
 else
-    source ${SCRIPTARGS[1]}
+    source ${SCRIPTARGS[0]}
 fi
 
 set -e
@@ -1450,6 +1452,7 @@ export PATH="$PATH:${BLASTDIR}:${TRIMMOMATICADAPTERS}"
 
 
 # check for previous log file - if found, ask user whether to start anew and overwrite or to skip completed files
+LOGFILE=${LOGLOC}/rnaseq_pipeline.log
 resume="N"
 if [[ -f ${LOGFILE} ]]; then
     chklog "PIPELINE-COMPLETE"
@@ -1478,10 +1481,10 @@ checkfolders=("${input}" "${output}" "${databases}")
 for chkfldr in checkfolders; do
     if [[ -d chkfldr ]]; then
         fldrname=${chkfldr##*/}
-        echo "A folder named 'input' already exists in the working location. If you continue, its files will be deleted. Continue anyway? (Y/N)"
+        echo "A folder named ${fldrname} already exists in the working location. If you continue, its files will be deleted. Continue anyway? (Y/N)"
         read continueanyway
         if [[ ${continueanyway} == "Y" ]] || [[ ${continueanyway} == "y" ]] || [[ ${continueanyway} == "Yes" ]] || [[ ${continueanyway} == "YES" ]] || [[ ${continueanyway} == "yes" ]]; then
-            # continue with script
+            echo "Continuing..."
         else
             echo "Please choose a new working directory or save the files you need in another location. When ready, restart this pipeline."
             exit 1
