@@ -1335,16 +1335,22 @@ mojo() {
         cp -t ${mojogoin} ${protout}/named/*.csv
         
         # move output files to destinations
-        
+        mv -t ${plotsdest} ${ballgownout}/PCA/*
+        rm ${ballgownout}/PCA
+        mv -t ${ballgowndest} ${ballgownout}/*
+        mv -t ${protproducts} ${protout}/*_readable.csv
+        mv -t ${protdest} ${protout}/*
+        mv -t ${plotsdest} ${plotsout}/*
         
         # in case anything was forgotten, move it to the "other" folder
-        
+        mv -t ${otherdest} ${output}/*.*
         
         # remove mojoinput folder
-        
+        emptydir ${mojoinput}
+        rm ${mojoinput}
         
         # remove output folders
-        
+        emptydir ${output}
         
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> ${setname}_mojo_files_2_complete"
     fi
@@ -1368,7 +1374,7 @@ mojo() {
     ## score FASTA file against PANTHER HMMs to map to PANTHER IDs
     #perl ${PANTHERSCORE} -l ${PANTHERLIBDIR} -D B -i ${pantherout}/tome_fasta.fa -o ${pantherout}/tome_panther_mapping.txt -n -s
 
-    for deglist in ${protout}/named/*_expr.csv; do
+    for deglist in ${mojogoin}/*_expr.csv; do
         base=${deglist##*/}
         basename=${base%.csv}
         echo "Current list: ${basename}"
@@ -1391,6 +1397,29 @@ mojo() {
     done
     
     cd ${WRKDIR}
+    
+    
+    # end-of-block file management
+    skip="N"
+    chklog "${setname}_mojo_files_3_complete"
+    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+        skip="Y"
+    fi
+    if [[ ${skip} == "N" ]]; then
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Performing file management..."
+        
+        # move PANTHER files
+        mv -t ${godest} ${pantherout}/final/*
+        rm ${pantherout}/final
+        mv -t ${pantherdest} ${pantherout}
+        rm ${pantherout}
+        
+        # remove mojogoin
+        emptydir ${mojogoin}
+        rm ${mojogoin}
+        
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_mojo_files_3_complete"
+    fi
     
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> mojo_${setname}_complete"
 }
@@ -1441,18 +1470,26 @@ fi
 
 
 # create local input, output, and database folders
+# but first, check to see whether those folders exist -- if they do, prompt user whether files should be overwritten
 input=${WRKDIR}/input
 output=${WRKDIR}/output
 databases=${WRKDIR}/databases
-if [[ ! -d ${input} ]]; then
-    mkdir ${input}
-fi
-if [[ ! -d ${output} ]]; then
-    mkdir ${output}
-fi
-if [[ ! -d ${databases} ]]; then
-    mkdir ${databases}
-fi
+checkfolders=("${input}" "${output}" "${databases}")
+for chkfldr in checkfolders; do
+    if [[ -d chkfldr ]]; then
+        fldrname=${chkfldr##*/}
+        echo "A folder named 'input' already exists in the working location. If you continue, its files will be deleted. Continue anyway? (Y/N)"
+        read continueanyway
+        if [[ ${continueanyway} == "Y" ]] || [[ ${continueanyway} == "y" ]] || [[ ${continueanyway} == "Yes" ]] || [[ ${continueanyway} == "YES" ]] || [[ ${continueanyway} == "yes" ]]; then
+            # continue with script
+        else
+            echo "Please choose a new working directory or save the files you need in another location. When ready, restart this pipeline."
+            exit 1
+        fi
+    else
+        mkdir ${chkfldr}
+    fi
+done
 
 
 
@@ -1533,5 +1570,17 @@ for ((index=0; index<${#SETNAMES[@]}; index++ )); do
     
     fi
 done
+
+# end-of-pipeline file management
+
+# move forgotten files to destination/other
+mv -t ${otherdest} ${output}/*
+
+# remove local input, output, and database folders
+rm ${output}
+emptydir ${input}
+rm ${input}
+emptydir ${databases}
+rm ${databases}
 
 echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> PIPELINE-COMPLETE."
