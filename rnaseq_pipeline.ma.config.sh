@@ -15,7 +15,7 @@
 LOGLOC=/home/thomas/Documents/workspace/mojo-test/logs
 
 # data directory -- location of the .fastq.gz files. All data files should be in a single directory. Please begin with the .fastq.gz file format or edit rnaseq_pipeline.sh to match the one you have.
-DATADIR="/mnt/raid1/Flammulina velutipes development/Data/sequences/data_all"
+DATADIR="/mnt/raid1/Flammulina_velutipes_development/Data/sequences/data_all"
 
 # sequencing batches -- if data was sequenced multiple times (such that each sample has multiple files for forward and reverse reads) they will need to be concatenated. Add the filename pattern that distinguishes each batch here.
 SEQBATCHES=("_001" "_002")
@@ -34,7 +34,7 @@ WRKDIR=/home/thomas/Documents/workspace/mojo-test
 # final directory -- where the files should go for storage
   # hint: use a large drive
   ## must have a different name than the working directory
-DESTDIR="/mnt/raid1/Flammulina velutipes development/Data/mojo-test"
+DESTDIR="/mnt/raid1/Flammulina_velutipes_development/Data/mojo-test"
 
 # how many CPUs to use on the current machine?
 NUMCPUS=6
@@ -56,7 +56,7 @@ BLASTNAPP=/home/thomas/bioinformatics/ncbi-blast-2.13.0+/bin/blastn
 PANTHERSCORE=/home/thomas/bioinformatics/pantherScore2.2/pantherScore2.2.pl
 
 ## paths for programs included in enoki
-scripts=/mnt/raid1/Flammulina velutipes development/scripts-test
+scripts=/mnt/raid1/Flammulina_velutipes_development/scripts-test
 # all these should be in the same folder
   # if they are, simply update scripts= with the name of the folder
   # if scripts are in separate folders, update all the variables below
@@ -85,14 +85,14 @@ GENOMEIDX="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/genome_assemblies
 # notes for pheotype data file (see example file)
     # do not use spaces in your column names!
     # must include a column labeled "ids" that matches the sample IDs used in the filenames
-PHENODATA="/mnt/raid1/Flammulina velutipes development/Data/mojo-test/sample-data-for-pipeline.csv"
+PHENODATA="/mnt/raid1/Flammulina_velutipes_development/Data/mojo-test/sample-data-for-pipeline.csv"
 BLASTDIR="/home/thomas/bioinformatics/ncbi-blast-2.13.0+/bin"
 PANTHERLIBDIR="/home/thomas/bioinformatics/PANTHER17.0_fasta" # download and extract any one of the .tgz files (all contain same data) from http://data.pantherdb.org/ftp/panther_library/current_release/
 
 
 ## list of data for BLAST
-RRNAFILE="/mnt/raid1/Flammulina velutipes development/Data/mojo-test/references/rrna/fungi.rRNA.fna"
-UNIPROTFILE="/mnt/raid1/Flammulina velutipes development/Data/mojo-test/references/uniprot-taxonomy 5338.fasta"
+RRNAFILE="/mnt/raid1/Flammulina_velutipes_development/Data/mojo-test/references/rrna/fungi.rRNA.fna"
+UNIPROTFILE="/mnt/raid1/Flammulina_velutipes_development/Data/mojo-test/references/uniprot-taxonomy 5338.fasta"
 
 
 ## sample subset declarations
