@@ -37,7 +37,7 @@ WRKDIR=/home/thomas/Documents/workspace/mojo-test
 DESTDIR="/mnt/raid1/Flammulina_velutipes_development/Data/mojo-test"
 
 # how many CPUs to use on the current machine?
-NUMCPUS=6
+NUMCPUS=12
 
 
 #### Program paths ####
