@@ -225,12 +225,13 @@ initqc() {
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
-        if (( ${#SEQBATCHES[@]} > 1 )); then
 
-            # create new folder for concatenation
-            if [[ ! -d ${newdatadir} ]]; then
-                mkdir ${newdatadir}
-            fi
+        # create new folder for concatenation
+        if [[ ! -d ${newdatadir} ]]; then
+            mkdir ${newdatadir}
+        fi
+
+        if (( ${#SEQBATCHES[@]} > 1 )); then
 
             echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Concatenating files by sample (preserving forward/reverse)..."
 
@@ -255,6 +256,15 @@ initqc() {
                 fi
             done
             echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> concatenation_complete."
+        else
+            # remove seqbatch ID from file name
+            echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Renaming files..."
+            for seqfile in ${DATADIR}/*.fastq.gz; do
+                nameending=${seqfile##*/}
+                basename=${nameending/"${SEQBATCHES[0]}"/}
+                cp ${seqfile} ${newdatadir}/${basename}
+            done
+            echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> concatenation_complete"
         fi
     fi
     
