@@ -535,6 +535,7 @@ initqc() {
     
     
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> initqc_complete"
+    initqcsuccess="T"
 }
 
 
@@ -675,6 +676,7 @@ initproc() {
     fi
     
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> initproc_complete"
+    initprocsuccess="T"
 }
 
 
@@ -932,6 +934,7 @@ listprep() {
     fi
     
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> listprep_complete"
+    listprepsuccess="T"
 }
 
 
@@ -1425,6 +1428,7 @@ mojo() {
     fi
     
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> mojo_${setname}_complete"
+    mojosuccess="T"
 }
 
 
@@ -1483,14 +1487,16 @@ databases=${WRKDIR}/databases
 checkfolders=("${input}" "${output}" "${databases}")
 for chkfldr in ${checkfolders[@]}; do
     if [[ -d ${chkfldr} ]]; then
-        fldrname=${chkfldr##*/}
-        echo "A folder named ${fldrname} already exists in the working location. If you continue, its files will be deleted. Continue anyway? (Y/N)"
-        read continueanyway
-        if [[ ${continueanyway} == "Y" ]] || [[ ${continueanyway} == "y" ]] || [[ ${continueanyway} == "Yes" ]] || [[ ${continueanyway} == "YES" ]] || [[ ${continueanyway} == "yes" ]]; then
-            echo "Continuing..."
-        else
-            echo "Please choose a new working directory or save the files you need in another location. When ready, restart this pipeline."
-            exit 1
+        if [[ resume == "N" ]]; then
+            fldrname=${chkfldr##*/}
+            echo "A folder named ${fldrname} already exists in the working location. If you continue, its files will be deleted. Continue anyway? (Y/N)"
+            read continueanyway
+            if [[ ${continueanyway} == "Y" ]] || [[ ${continueanyway} == "y" ]] || [[ ${continueanyway} == "Yes" ]] || [[ ${continueanyway} == "YES" ]] || [[ ${continueanyway} == "yes" ]]; then
+                echo "Continuing..."
+            else
+                echo "Please choose a new working directory or save the files you need in another location. When ready, restart this pipeline."
+                exit 1
+            fi
         fi
     else
         mkdir ${chkfldr}
@@ -1512,9 +1518,15 @@ if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
     skip="Y"
 fi
 if [[ ${skip} == "N" ]]; then
+    
+    initqcsuccess="F"
 
     # do initial QC
     initqc 2>&1 | tee -a $LOGFILE
+    
+    if [[ initqcsuccess == "F" ]]; then
+        exit 1
+    fi
     
 fi
 
@@ -1530,10 +1542,16 @@ if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
     skip="Y"
 fi
 if [[ ${skip} == "N" ]]; then
+    
+    initprocsuccess="F"
 
     # do initial analysis
     initproc 2>&1 | tee -a $LOGFILE
-
+    
+    if [[ initprocsuccess == "F" ]]; then
+        exit 1
+    fi
+    
 fi
 
 
@@ -1548,10 +1566,16 @@ if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
     skip="Y"
 fi
 if [[ ${skip} == "N" ]]; then
+    
+    listprepsuccess="F"
 
     # prepare removelists
     listprep 2>&1 | tee -a $LOGFILE
-
+    
+    if [[ listprepsuccess == "F" ]]; then
+        exit 1
+    fi
+    
 fi
 
 
@@ -1571,9 +1595,15 @@ for ((index=0; index<${#SETNAMES[@]}; index++ )); do
     fi
     if [[ ${skip} == "N" ]]; then
         
+        mojosuccess="F"
+        
         # perform main analyses
         mojo ${SETNAMES[index]} ${REMOVELISTS[index]} ${COVARIATES[index]} ${ADJVARSETS[index]} 2>&1 | tee -a $LOGFILE
-    
+        
+        if [[ mojosuccess == "F" ]]; then
+            exit 1
+        fi
+        
     fi
 done
 
