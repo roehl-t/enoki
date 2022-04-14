@@ -25,7 +25,7 @@ EOF
 #
 #skip="N"
 #chklog "completion_text"
-#if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+#if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
 #    skip="Y"
 #fi
 #if [[ ${skip} == "N" ]]; then
@@ -182,7 +182,7 @@ initqc() {
     ## FASTQC analysis of raw files
     skip="N"
     chklog "raw_fastqc_complete"
-    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+    if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
@@ -201,7 +201,7 @@ initqc() {
         for seqfile in ${DATADIR}/*.fastq.gz; do
             skip="N"
             chklog "${output}/fastqc/raw/${seqfile##*/}"
-            if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+            if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
                 skip="Y"
             fi
             if [[ ${skip} == "N" ]]; then
@@ -221,7 +221,7 @@ initqc() {
     
     skip="N"
     chklog "concatenation_complete"
-    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+    if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
@@ -241,7 +241,7 @@ initqc() {
 
                 skip="N"
                 chklog "${newdatadir}/${basename}"
-                if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+                if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
                     skip="Y"
                 fi
                 if [[ ${skip} == "N" ]]; then
@@ -262,7 +262,7 @@ initqc() {
     ## Adapter and 3' quality trimming using trimmomatic
     skip="N"
     chklog "trimmomatic_complete"
-    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+    if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
@@ -282,7 +282,7 @@ initqc() {
 
             skip="N"
             chklog "${output}/trimmomatic/${basename}_2U.fq"
-            if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+            if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
                 skip="Y"
             fi
             if [[ ${skip} == "N" ]]; then
@@ -298,7 +298,7 @@ initqc() {
     ## Remove low-complexity sequences using fqtrim
     skip="N"
     chklog "fqtrim_1p_complete"
-    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+    if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
@@ -315,7 +315,7 @@ initqc() {
 
             skip="N"
             chklog "${readpair}"
-            if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+            if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
                 skip="Y"
             fi
             if [[ ${skip} == "N" ]]; then
@@ -332,7 +332,7 @@ initqc() {
     ## incorporate unpaired sequences, if option is Y
     skip="N"
     chklog "fqtrim_1u_complete"
-    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+    if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
@@ -343,7 +343,7 @@ initqc() {
             for file in ${output}/trimmomatic/*U.fq; do
                 skip="N"
                 chklog "${output}/fqtrim1/${file}"
-                if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+                if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
                     skip="Y"
                 fi
                 if [[ ${skip} == "N" ]]; then
@@ -361,7 +361,7 @@ initqc() {
     ## run FastQC on trimmed reads
     skip="N"
     chklog "trim1_fastqc_complete"
-    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+    if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
@@ -375,7 +375,7 @@ initqc() {
         for seqfile in ${output}/fqtrim1/*.fqtrimmed.fq; do
             skip="N"
             chklog "${output}/fastqc/trim1/${seqfile##*/}"
-            if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+            if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
                 skip="Y"
             fi
             if [[ ${skip} == "N" ]]; then
@@ -394,7 +394,7 @@ initqc() {
         # rerunning fqtrim is required to remove these junk sequences
     skip="N"
     chklog "fqtrim_2p_complete"
-    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+    if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
@@ -409,7 +409,7 @@ initqc() {
         for seqfile in ${output}/fqtrim1/*P.fqtrimmed.fq; do
             skip="N"
             chklog "${output}/fqtrim2/${seqfile##*/}"
-            if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+            if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
                 skip="Y"
             fi
             if [[ ${skip} == "N" ]]; then
@@ -426,7 +426,7 @@ initqc() {
     ## run FastQC on retrimmed reads
     skip="N"
     chklog "trim2_fastqc_complete"
-    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+    if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
@@ -440,7 +440,7 @@ initqc() {
         for seqfile in ${output}/fqtrim2/*.fq; do
             skip="N"
             chklog "${output}/fastqc/trim2/${seqfile##*/}"
-            if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+            if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
                 skip="Y"
             fi
             if [[ ${skip} == "N" ]]; then
@@ -458,7 +458,7 @@ initqc() {
         # paired sequences need to be in the same order in each pair file for the next step
     skip="N"
     chklog "interleave_complete"
-    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+    if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
@@ -485,7 +485,7 @@ initqc() {
             
             skip="N"
             chklog "${output}/interleave/${base}_out_unpaired.fastq"
-            if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+            if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
                 skip="Y"
             fi
             if [[ ${skip} == "N" ]]; then
@@ -503,7 +503,7 @@ initqc() {
     ## end-of-block file management
     skip="N"
     chklog "initqc_file_management_complete"
-    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+    if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
@@ -575,7 +575,7 @@ initproc() {
         # in case of interruption, skip finished files
         skip="N"
         chklog "initproc_${sample}_complete"
-        if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+        if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
             skip="Y"
         fi
         if [[ ${skip} == "N" ]]; then
@@ -633,7 +633,7 @@ initproc() {
     ## end-of-block file management
     skip="N"
     chklog "initproc_file_management_complete"
-    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+    if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
@@ -689,7 +689,7 @@ estabund() {
     # create merge list
     skip="N"
     chklog "${thisname}_transcripts_merged"
-    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+    if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
@@ -708,7 +708,7 @@ estabund() {
     ## estimate transcript abundance
     skip="N"
     chklog "${thisname}_abundance_estimation_complete"
-    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+    if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
@@ -721,7 +721,7 @@ estabund() {
             
             skip="N"
             chklog "${thisname}_${sample}_abundance_estimated"
-            if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+            if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
                 skip="Y"
             fi
             if [[ ${skip} == "N" ]]; then
@@ -764,7 +764,7 @@ estabund() {
     # create transcript FASTA file
     skip="N"
     chklog "${thisname}_transcriptome_complete"
-    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+    if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
@@ -781,7 +781,7 @@ estabund() {
     
     skip="N"
     chklog "rRNA_DB_created"
-    if [[ ${chkresult} == "Y" && -d ${databases}/rrnadb ]]; then
+    if [[ ${chkresult} == "T" && -d ${databases}/rrnadb ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
@@ -799,7 +799,7 @@ estabund() {
     # BLAST rRNA database
     skip="N"
     chklog "${thisname}_rrna_blast_complete"
-    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+    if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
@@ -817,7 +817,7 @@ estabund() {
     ## remove matched transcripts from ctab files
     skip="N"
     chklog "${thisname}_rRNA_removed"
-    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+    if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
@@ -826,7 +826,7 @@ estabund() {
         # save a copy of the original tables in a new folder
         skip="N"
         chklog "${thisname}_ctabs_copied"
-        if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+        if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
             skip="Y"
         fi
         if [[ ${skip} == "N" ]]; then
@@ -871,7 +871,7 @@ listprep() {
     ## estimate abundance and remove rRNA
     skip="N"
     chklog "listprep_estabund_complete"
-    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+    if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
@@ -881,7 +881,7 @@ listprep() {
     ## for each auto remove list, add samples to that list that are below the cutoff and add any REMOVEALWAYS samples
     skip="N"
     chklog "removelists_updated"
-    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+    if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
@@ -1025,7 +1025,7 @@ mojo() {
     ### estimate abundances and remove rRNA
     skip="N"
     chklog "${setname}_estabund_complete"
-    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+    if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
@@ -1038,7 +1038,7 @@ mojo() {
     ### busco completeness test
     skip="N"
     chklog "${setname}_busco_complete"
-    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+    if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
@@ -1068,7 +1068,7 @@ mojo() {
     ## file management
     skip="N"
     chklog "${setname}_mojo_files_1_complete"
-    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+    if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
@@ -1114,7 +1114,7 @@ mojo() {
     ### use ballgown to create differential expression tables
     skip="N"
     chklog "${setname}_ballgown_complete"
-    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+    if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
@@ -1136,7 +1136,7 @@ mojo() {
     ## BLAST DEGs
     skip="N"
     chklog "${setname}_gene_naming_complete"
-    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+    if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
@@ -1144,7 +1144,7 @@ mojo() {
         # create BLAST database
         skip="N"
         chklog "protein_db_created"
-        if [[ ${chkresult} == "Y" ]]; then
+        if [[ ${chkresult} == "T" ]]; then
             skip="Y"
         fi
         if [[ ${skip} == "N" ]]; then
@@ -1164,7 +1164,7 @@ mojo() {
             
             skip="N"
             chklog "${setname}_${currentDEGs}_gene_naming_complete"
-            if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+            if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
                 skip="Y"
             fi
             if [[ ${skip} == "N" ]]; then
@@ -1172,7 +1172,7 @@ mojo() {
 
                 skip="N"
                 chklog "${setname}_${currentDEGs}_matchgenes_complete"
-                if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+                if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
                     skip="Y"
                 fi
                 if [[ ${skip} == "N" ]]; then
@@ -1195,7 +1195,7 @@ mojo() {
                 # search BLAST database
                 skip="N"
                 chklog "${setname}_${currentDEGs}_blastx_complete"
-                if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+                if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
                     skip="Y"
                 fi
                 if [[ ${skip} == "N" ]]; then
@@ -1249,7 +1249,7 @@ mojo() {
      ## generate heat maps or bar plots
     skip="N"
     chklog "${setname}_plots_complete"
-    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+    if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
@@ -1262,7 +1262,7 @@ mojo() {
             
             skip="N"
             chklog "${setname}_all_heatmap_complete"
-            if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+            if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
                 skip="Y"
             fi
             if [[ ${skip} == "N" ]]; then
@@ -1277,7 +1277,7 @@ mojo() {
 
             skip="N"
             chklog "${setname}_gene_plots_complete"
-            if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+            if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
                 skip="Y"
             fi
             if [[ ${skip} == "N" ]]; then
@@ -1290,7 +1290,7 @@ mojo() {
 
             skip="N"
             chklog "${setname}_organism_plots_complete"
-            if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+            if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
                 skip="Y"
             fi
             if [[ ${skip} == "N" ]]; then
@@ -1303,7 +1303,7 @@ mojo() {
 
             skip="N"
             chklog "${setname}_sample_plots_complete"
-            if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+            if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
                 skip="Y"
             fi
             if [[ ${skip} == "N" ]]; then
@@ -1326,7 +1326,7 @@ mojo() {
     ## file management
     skip="N"
     chklog "${setname}_mojo_files_2_complete"
-    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+    if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
@@ -1408,7 +1408,7 @@ mojo() {
     # end-of-block file management
     skip="N"
     chklog "${setname}_mojo_files_3_complete"
-    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+    if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
@@ -1514,7 +1514,7 @@ chkprog 1
 # (if skip) check if initial QC was previously completed - if so, skip initial QC
 skip="N"
 chklog "initqc_complete"
-if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
     skip="Y"
 fi
 if [[ ${skip} == "N" ]]; then
@@ -1538,7 +1538,7 @@ chkprog 2
 # (if skip) check if initial analysis was previously completed - if so, skip inital analysis
 skip="N"
 chklog "initproc_complete"
-if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
     skip="Y"
 fi
 if [[ ${skip} == "N" ]]; then
@@ -1562,7 +1562,7 @@ chkprog 3
 # (if skip) check if initial analysis was previously completed - if so, skip inital analysis
 skip="N"
 chklog "listprep_complete"
-if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
     skip="Y"
 fi
 if [[ ${skip} == "N" ]]; then
@@ -1590,7 +1590,7 @@ chkprog 4
 for ((index=0; index<${#SETNAMES[@]}; index++ )); do
     skip="N"
     chklog "mojo_${SETNAMES[index]}_complete"
-    if [[ ${resume} == "Y" && ${chkresult} == "Y" ]]; then
+    if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
