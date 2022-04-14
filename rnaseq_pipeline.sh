@@ -1487,7 +1487,7 @@ databases=${WRKDIR}/databases
 checkfolders=("${input}" "${output}" "${databases}")
 for chkfldr in ${checkfolders[@]}; do
     if [[ -d ${chkfldr} ]]; then
-        if [[ resume == "N" ]]; then
+        if [[ ${resume} == "N" ]]; then
             fldrname=${chkfldr##*/}
             echo "A folder named ${fldrname} already exists in the working location. If you continue, its files will be deleted. Continue anyway? (Y/N)"
             read continueanyway
