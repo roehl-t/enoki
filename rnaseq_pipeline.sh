@@ -200,13 +200,13 @@ initqc() {
         ## generate FastQC reports from raw data
         for seqfile in ${DATADIR}/*.fastq.gz; do
             skip="N"
-            chklog "${output}/fastqc/raw/${seqfile##*/}"
+            chklog "${output}/fastqc/raw/${seqfile##*/}_FastQC_done"
             if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
                 skip="Y"
             fi
             if [[ ${skip} == "N" ]]; then
                 ${FASTQC} -t ${NUMCPUS} -o ${output}/fastqc/raw ${seqfile}
-                echo ${output}/fastqc/raw/${seqfile##*/}
+                echo "${output}/fastqc/raw/${seqfile##*/}_FastQC_done"
             fi
         done
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> raw_fastqc_complete."
@@ -241,7 +241,7 @@ initqc() {
                 basename=${nameending/"${SEQBATCHES[0]}"/}
 
                 skip="N"
-                chklog "${newdatadir}/${basename}"
+                chklog "${newdatadir}/${basename}_cat_done"
                 if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
                     skip="Y"
                 fi
@@ -252,7 +252,7 @@ initqc() {
                         cat ${nextfile} >> ${newdatadir}/${basename}
                     done
                     
-                    echo ${newdatadir}/${basename}
+                    echo "${newdatadir}/${basename}_cat_done"
                 fi
             done
             echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> concatenation_complete."
@@ -578,8 +578,7 @@ initproc() {
     
     for ((i=0; i<=${#reads1[@]}-1; i++ )); do
         sample="${reads1[$i]##*/}"
-        sample="${reads1[$i]%%.*}"
-        sample="${sample%_L001*}" ########################################## check that this is needed
+        sample="${sample%%.*}"
         echo "Sample name: " ${sample}
 
         # in case of interruption, skip finished files
@@ -590,7 +589,7 @@ initproc() {
         fi
         if [[ ${skip} == "N" ]]; then
         
-            ${unmappedloc}=${unmappeddir}/${sample}
+            unmappedloc=${unmappeddir}/${sample}
 
             unpairedBoth=${unpaired1[$i]},${unpaired2[$i]},${unpaired3[$i]}
             stime=`date +"%Y-%m-%d %H:%M:%S"`
@@ -1534,7 +1533,7 @@ if [[ ${skip} == "N" ]]; then
     # do initial QC
     initqc 2>&1 | tee -a $LOGFILE
     
-    if [[ initqcsuccess == "F" ]]; then
+    if [[ ${initqcsuccess} == "F" ]]; then
         exit 1
     fi
     
@@ -1558,7 +1557,7 @@ if [[ ${skip} == "N" ]]; then
     # do initial analysis
     initproc 2>&1 | tee -a $LOGFILE
     
-    if [[ initprocsuccess == "F" ]]; then
+    if [[ ${initprocsuccess} == "F" ]]; then
         exit 1
     fi
     
@@ -1582,7 +1581,7 @@ if [[ ${skip} == "N" ]]; then
     # prepare removelists
     listprep 2>&1 | tee -a $LOGFILE
     
-    if [[ listprepsuccess == "F" ]]; then
+    if [[ ${listprepsuccess} == "F" ]]; then
         exit 1
     fi
     
@@ -1610,7 +1609,7 @@ for ((index=0; index<${#SETNAMES[@]}; index++ )); do
         # perform main analyses
         mojo ${SETNAMES[index]} ${REMOVELISTS[index]} ${COVARIATES[index]} ${ADJVARSETS[index]} 2>&1 | tee -a $LOGFILE
         
-        if [[ mojosuccess == "F" ]]; then
+        if [[ ${mojosuccess} == "F" ]]; then
             exit 1
         fi
         
