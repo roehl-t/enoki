@@ -22,7 +22,7 @@ SEQBATCHES=("_001" "_002")
 # use this if there is only one batch of data: SEQBATCHES=("none")
 
 # forward/reverse labels -- the filename patterns that distinguish forward and reverse samples, list the forward pattern first
-FWDREV=("_R1" "_R2")
+FWDREV=("_L001_R1" "_L001_R2")
 
 # use unpaired reads? -- either Y to use the unpaired reads or N to ignore them
 USEUNPAIRED=Y
