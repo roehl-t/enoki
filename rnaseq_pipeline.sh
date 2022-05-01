@@ -291,14 +291,14 @@ initqc() {
             basename=${name/"${FWDREV[0]}"/}
 
             skip="N"
-            chklog "${output}/trimmomatic/${basename}_2U.fq"
+            chklog "trimmomatic_${basename}_complete"
             if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
                 skip="Y"
             fi
             if [[ ${skip} == "N" ]]; then
                  java -jar ${TRIMMOMATIC} PE -threads ${NUMCPUS} -trimlog ${LOGLOC}/trimmomatic_trimlog.txt -basein ${filename} -baseout ${output}/trimmomatic/${basename}.fq ILLUMINACLIP:${TRIMMOMATICADAPTERS}:2:30:10 SLIDINGWINDOW:4:20 MINLEN:50
                  
-                 echo ${output}/trimmomatic/${basename}_2U.fq
+                 echo "trimmomatic_${basename}_complete"
              fi
         done
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> trimmomatic_complete"
