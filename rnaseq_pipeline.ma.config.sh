@@ -18,7 +18,7 @@ LOGLOC=/home/thomas/Documents/workspace/mojo-test/logs
 DATADIR="/mnt/raid1/Flammulina_velutipes_development/Data/sequences/data_all"
 
 # sequencing batches -- if data was sequenced multiple times (such that each sample has multiple files for forward and reverse reads) they will need to be concatenated. Add the filename pattern that distinguishes each batch here.
-SEQBATCHES=("_L001_001" "_L002_002")
+SEQBATCHES=("_L001_001" "_L001_002")
 # use this if there is only one batch of data: SEQBATCHES=("none")
 
 # forward/reverse labels -- the filename patterns that distinguish forward and reverse samples, list the forward pattern first
