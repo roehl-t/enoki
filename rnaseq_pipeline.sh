@@ -283,13 +283,11 @@ initqc() {
             mkdir ${output}/trimmomatic
         fi
 
-        # I don't know why the following line was included -- test to see if this section works without copying the files into the working directory
-        #cp ${trimmomatic_adapter_dir}/TruSeq3-PE-2.fa ./TruSeq3-PE-2.fa
         for fwdname in ${newdatadir}/*${FWDREV[0]}*.fastq.gz; do
             nameending=${fwdname##*/}
             name=${nameending%.fastq.gz}
             basename=${name/"${FWDREV[0]}"/}
-            revname=${filename/"${FWDREV[0]}"/"${FWDREV[1]}"}
+            revname=${fwdname/"${FWDREV[0]}"/"${FWDREV[1]}"}
 
             skip="N"
             chklog "trimmomatic_${basename}_complete"
