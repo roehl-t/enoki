@@ -285,10 +285,11 @@ initqc() {
 
         # I don't know why the following line was included -- test to see if this section works without copying the files into the working directory
         #cp ${trimmomatic_adapter_dir}/TruSeq3-PE-2.fa ./TruSeq3-PE-2.fa
-        for filename in ${newdatadir}/*${FWDREV[0]}*.fastq.gz; do
-            nameending=${filename##*/}
+        for fwdname in ${newdatadir}/*${FWDREV[0]}*.fastq.gz; do
+            nameending=${fwdname##*/}
             name=${nameending%.fastq.gz}
             basename=${name/"${FWDREV[0]}"/}
+            revname=${filename/"${FWDREV[0]}"/"${FWDREV[1]}"}
 
             skip="N"
             chklog "trimmomatic_${basename}_complete"
@@ -296,7 +297,7 @@ initqc() {
                 skip="Y"
             fi
             if [[ ${skip} == "N" ]]; then
-                 java -jar ${TRIMMOMATIC} PE -threads ${NUMCPUS} -trimlog ${LOGLOC}/trimmomatic_trimlog.txt -basein ${filename} -baseout ${output}/trimmomatic/${basename}.fq ILLUMINACLIP:${TRIMMOMATICADAPTERS}:2:30:10 SLIDINGWINDOW:4:20 MINLEN:50
+                 java -jar ${TRIMMOMATIC} PE -threads ${NUMCPUS} -trimlog ${LOGLOC}/trimmomatic_trimlog.txt ${fwdname} ${revname} -baseout ${output}/trimmomatic/${basename}.fq ILLUMINACLIP:${TRIMMOMATICADAPTERS}:2:30:10 SLIDINGWINDOW:4:20 MINLEN:50
                  
                  echo "trimmomatic_${basename}_complete"
              fi
