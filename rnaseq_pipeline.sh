@@ -323,7 +323,7 @@ initqc() {
             readpair=$(echo $file,${file/_1P/_2P} | tr -d '\n')
 
             skip="N"
-            chklog "${readpair}"
+            chklog "${readpair}_complete"
             if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
                 skip="Y"
             fi
@@ -331,7 +331,7 @@ initqc() {
             
                 ${FQTRIM} -l 30 -p ${NUMCPUS} -D -o fqtrimmed.fq --outdir ${output}/fqtrim1 -r ${LOGLOC}/fqtrimlog1p.txt ${readpair}
                 
-                echo ${readpair}
+                echo "${readpair}_complete"
             fi
         done
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> fqtrim_1p_complete"
@@ -351,7 +351,7 @@ initqc() {
             # trimmomatic outputs unpaired sequences as ./*_1U.fq and ./*_2U.fq
             for file in ${output}/trimmomatic/*U.fq; do
                 skip="N"
-                chklog "${output}/fqtrim1/${file}"
+                chklog "${output}/fqtrim1/${file##*/}_complete"
                 if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
                     skip="Y"
                 fi
@@ -359,7 +359,7 @@ initqc() {
 
                     ${FQTRIM} -l 30 -p ${NUMCPUS} -D -o fqtrimmed.fq --outdir ${output}/fqtrim1 -r ${LOGLOC}/fqtrimlog1u.txt ${file}
 
-                    echo ${output}/fqtrim1/${file}
+                    echo "${output}/fqtrim1/${file##*/}_complete"
                 fi
             done
             echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> fqtrim_1u_complete"
@@ -417,14 +417,14 @@ initqc() {
         # run fqtrim on paired sequences
         for seqfile in ${output}/fqtrim1/*P.fqtrimmed.fq; do
             skip="N"
-            chklog "${output}/fqtrim2/${seqfile##*/}"
+            chklog "${output}/fqtrim2/${seqfile##*/}_trimmed2"
             if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
                 skip="Y"
             fi
             if [[ ${skip} == "N" ]]; then
 
                 ${FQTRIM} -l 30 -p ${NUMCPUS} -D -o 2.fq --outdir ${output}/fqtrim2 -r ${LOGLOC}/fqtrimlog2p.txt ${seqfile}
-                echo ${output}/fqtrim2/${seqfile##*/}
+                echo "${output}/fqtrim2/${seqfile##*/}_trimmed2"
                 
             fi
         done
@@ -478,6 +478,7 @@ initqc() {
             mkdir ${output}/interleave
         fi
 
+        echo "copying files..."
         # copy over unpaired reads from fqtrim1
         for seqfile in ${output}/fqtrim1/*U.fqtrimmed.fq; do
             basename=${seqfile##*/}
@@ -486,6 +487,7 @@ initqc() {
             cp ${seqfile} ${output}/interleave/${basename}
         done
 
+        echo "matching pairs..."
         # perform interleave
         for file in ${output}/fqtrim2/*_1P.fqtrimmed.2.fq; do
             reverse=$(echo ${file/_1P/_2P} | tr -d '\n')
@@ -493,7 +495,7 @@ initqc() {
             base=${output}/interleave/${basename%_*}
             
             skip="N"
-            chklog "${output}/interleave/${base}_out_unpaired.fastq"
+            chklog "${output}/interleave/${base}_out_unpaired.fastq_interleaved"
             if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
                 skip="Y"
             fi
@@ -501,7 +503,7 @@ initqc() {
 
                 python3 ${INTERLEAVE} ${file} ${reverse} ${base}
                 # output files are ./*_out_pairs_fwd.fastq ./*_out_pairs_rev.fastq and ./*_out_unpaired.fastq
-                echo ${output}/interleave/${base}_out_unpaired.fastq
+                echo "${output}/interleave/${base}_out_unpaired.fastq_interleaved"
                 
             fi
         done
@@ -1500,7 +1502,8 @@ for chkfldr in ${checkfolders[@]}; do
             echo "A folder named ${fldrname} already exists in the working location. If you continue, its files will be deleted. Continue anyway? (Y/N)"
             read continueanyway
             if [[ ${continueanyway} == "Y" ]] || [[ ${continueanyway} == "y" ]] || [[ ${continueanyway} == "Yes" ]] || [[ ${continueanyway} == "YES" ]] || [[ ${continueanyway} == "yes" ]]; then
-                echo "Continuing..."
+                echo "Deleting contents and continuing..."
+                emptydir ${fldrname}
             else
                 echo "Please choose a new working directory or save the files you need in another location. When ready, restart this pipeline."
                 exit 1
