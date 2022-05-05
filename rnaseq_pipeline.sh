@@ -215,8 +215,10 @@ initqc() {
     
     ## concatenate files from multiple runs if needed
     newdatadir=${DATADIR}
+    needsconcat="F"
     if (( ${#SEQBATCHES[@]} > 1 )); then
         newdatadir=${output}/concatenate
+        needsconcat="T"
     fi
     
     skip="N"
@@ -224,7 +226,7 @@ initqc() {
     if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
         skip="Y"
     fi
-    if [[ ${skip} == "N" ]]; then
+    if [[ ${skip} == "N" && ${needsconcat} == "T" ]]; then
 
         # create new folder for concatenation
         if [[ ! -d ${newdatadir} ]]; then
@@ -303,6 +305,24 @@ initqc() {
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> trimmomatic_complete"
     fi
     
+    ## file management: move concatenated sequences (no longer needed) to destination
+    if [[ ! -d ${DESTDIR}/initqc ]]; then
+        mkdir ${DESTDIR}/initqc
+    fi
+    skip="N"
+    chklog "completed_concatenation_mv_to_dest"
+    if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
+        skip="Y"
+    fi
+    if [[ ${skip} == "N" && ${needsconcat} == "T" ]]; then
+        mv -t ${DESTDIR}/initqc ${output}/concatenate
+        echo "completed_concatenation_mv_to_dest"
+    fi
+    
+    
+    if [[ ! -d ${DESTDIR}/initqc/trimmomatic ]]; then
+        mkdir ${DESTDIR}/initqc/trimmomatic
+    fi
     
     ## Remove low-complexity sequences using fqtrim
     skip="N"
@@ -331,6 +351,10 @@ initqc() {
             
                 ${FQTRIM} -l 30 -p ${NUMCPUS} -D -o fqtrimmed.fq --outdir ${output}/fqtrim1 -r ${LOGLOC}/fqtrimlog1p.txt ${readpair}
                 
+                # file management: move trimmomatic paired files (no longer needed) to destination
+                mv -t ${DESTDIR}/initqc/trimmomatic ${file}
+                mv -t ${DESTDIR}/initqc/trimmomatic ${file/_1P/_2P}
+                
                 echo "${readpair}_complete"
             fi
         done
@@ -347,23 +371,45 @@ initqc() {
     if [[ ${skip} == "N" ]]; then
         if [[ ${USEUNPAIRED} == "Y" ]]; then
             echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Running fqtrim on unpaired reads..."
+        else
+            echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Moving unpaired reads to destination..."
+        fi
 
             # trimmomatic outputs unpaired sequences as ./*_1U.fq and ./*_2U.fq
-            for file in ${output}/trimmomatic/*U.fq; do
-                skip="N"
-                chklog "${output}/fqtrim1/${file##*/}_complete"
-                if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
-                    skip="Y"
-                fi
-                if [[ ${skip} == "N" ]]; then
+        for file in ${output}/trimmomatic/*U.fq; do
+            skip="N"
+            chklog "${output}/fqtrim1/${file##*/}_complete"
+            if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
+                skip="Y"
+            fi
+            if [[ ${skip} == "N" ]]; then
 
+                if [[ ${USEUNPAIRED} == "Y" ]]; then
                     ${FQTRIM} -l 30 -p ${NUMCPUS} -D -o fqtrimmed.fq --outdir ${output}/fqtrim1 -r ${LOGLOC}/fqtrimlog1u.txt ${file}
-
-                    echo "${output}/fqtrim1/${file##*/}_complete"
                 fi
-            done
-            echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> fqtrim_1u_complete"
-        fi
+                
+                # file management: move trimmomatic unpaired files (no longer needed) to destination
+                mv -t ${DESTDIR}/initqc/trimmomatic ${file}
+
+                echo "${output}/fqtrim1/${file##*/}_complete"
+            fi
+        done
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> fqtrim_1u_complete"
+
+    fi
+    
+    ## file management: all trimmomatic files have been processed, remove folder
+    skip="N"
+    chklog "${output}/fqtrim1/${file##*/}_complete"
+    if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
+        skip="Y"
+    fi
+    if [[ ${skip} == "N" ]]; then
+        for file in ${output}/trimmomatic/*; do
+            mv -t ${DESTINATION}/initqc/trimmomatic ${file}
+        done
+        rm ${output}/trimmomatic
+        echo "trimmomatic_folder_moved"
     fi
     
     
@@ -398,6 +444,10 @@ initqc() {
     fi
     
     
+    if [[ ! -d ${DESTDIR}/initqc/fqtrim1 ]]; then
+        mkdir ${DESTDIR}/initqc/fqtrim1
+    fi
+    
     ## rerun fqtrim on paired sequences, but ignore pairs
         # to preserve pair order, fqtrim will leave single-nucleotide sequences in the files
         # rerunning fqtrim is required to remove these junk sequences
@@ -424,6 +474,10 @@ initqc() {
             if [[ ${skip} == "N" ]]; then
 
                 ${FQTRIM} -l 30 -p ${NUMCPUS} -D -o 2.fq --outdir ${output}/fqtrim2 -r ${LOGLOC}/fqtrimlog2p.txt ${seqfile}
+                
+                # file management: paired fqtrim1 reads are no longer needed -- move to destination
+                mv -t ${DESTDIR}/initqc/fqtrim1 ${seqfile}
+                
                 echo "${output}/fqtrim2/${seqfile##*/}_trimmed2"
                 
             fi
@@ -463,6 +517,10 @@ initqc() {
     fi
     
     
+    if [[ ! -d ${DESTDIR}/initqc/fqtrim2 ]]; then
+        mkdir ${DESTDIR}/initqc/fqtrim2
+    fi
+    
     ## reorder paired sequences
         # paired sequences need to be in the same order in each pair file for the next step
     skip="N"
@@ -477,15 +535,6 @@ initqc() {
         if [[ ! -d ${output}/interleave ]]; then
             mkdir ${output}/interleave
         fi
-
-        echo "copying files..."
-        # copy over unpaired reads from fqtrim1
-        for seqfile in ${output}/fqtrim1/*U.fqtrimmed.fq; do
-            basename=${seqfile##*/}
-            echo ${basename}
-
-            cp ${seqfile} ${output}/interleave/${basename}
-        done
 
         echo "matching pairs..."
         # perform interleave
@@ -503,6 +552,11 @@ initqc() {
 
                 python3 ${INTERLEAVE} ${file} ${reverse} ${base}
                 # output files are ./*_out_pairs_fwd.fastq ./*_out_pairs_rev.fastq and ./*_out_unpaired.fastq
+                
+                # file management: fqtrim2 files are no longer needed -- move them to the destination
+                mv -t ${DESTDIR}/initqc/fqtrim2 ${file}
+                mv -t ${DESTDIR}/initqc/fqtrim2 ${reverse}
+                
                 echo "${output}/interleave/${base}_out_unpaired.fastq_interleaved"
                 
             fi
@@ -512,6 +566,11 @@ initqc() {
     
     
     ## end-of-block file management
+        # trimmomatic folder has already been moved
+        # unpaired reads remain in fqtrim1 folder
+        # no reads remain in fqtrim2, but the folder still exists
+        # fwd, reverse, and unpaired reads remain in fqtrim2
+        # quality data remains in fastqc
     skip="N"
     chklog "initqc_file_management_complete"
     if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
@@ -523,23 +582,25 @@ initqc() {
         # empty local input folder (it should already be empty)
         emptydir ${input}
         
-        # copy final files to local input folder
-            # in case the process was interrupted after moving /interleave but before reaching completing file management, avoid errors by first checking to see if the /interleave folder is still in the output folder
-        if [[ -d ${output}/interleave ]]; then
-            for file in ${output}/interleave/*; do
-                basename=${file##*/}
-                echo ${basename}
-
-                cp ${file} ${input}/${basename}
-            done
+        # remove fqtrim2 folder
+        mv -t ${DESTDIR}/initqc/fqtrim2 ${output}/fqtrim2/*
+        rm ${output}/fqtrim2
+        
+        # copy all remaining output files to destination
+        cp -t ${DESTDIR}/initqc ${output}/*
+        
+        # move needed output files to input
+            # paired files
+        mv -t ${input} ${output}/interleave/*_out_pairs_*.fastq
+        if [[ ${USEPAIRS} == "Y" ]]; then
+            # unpaired fqtrim1 files
+            mv -t ${input} ${output}/fqtrim1/*U.fq
+            # unpaired interleaved files
+            mv -t ${input} ${output}/interleave/*_out_unpaired.fastq
         fi
-
-        # move contents of output folder to destination folder
-        if [[ ! -d ${DESTDIR}/initqc ]]; then
-            mkdir ${DESTDIR}/initqc
-        fi
-
-        mv ${output}/* ${DESTDIR}/initqc
+        
+        # empty ouptut folder
+        emptydir ${output}
         
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> initqc_file_management_complete"
     fi
@@ -1503,7 +1564,7 @@ for chkfldr in ${checkfolders[@]}; do
             read continueanyway
             if [[ ${continueanyway} == "Y" ]] || [[ ${continueanyway} == "y" ]] || [[ ${continueanyway} == "Yes" ]] || [[ ${continueanyway} == "YES" ]] || [[ ${continueanyway} == "yes" ]]; then
                 echo "Deleting contents and continuing..."
-                emptydir ${fldrname}
+                emptydir ${chkfldr}
             else
                 echo "Please choose a new working directory or save the files you need in another location. When ready, restart this pipeline."
                 exit 1
