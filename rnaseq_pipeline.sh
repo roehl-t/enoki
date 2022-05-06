@@ -400,15 +400,17 @@ initqc() {
     
     ## file management: all trimmomatic files have been processed, remove folder
     skip="N"
-    chklog "${output}/fqtrim1/${file##*/}_complete"
+    chklog "trimmomatic_folder_moved"
     if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
         for file in ${output}/trimmomatic/*; do
-            mv -t ${DESTINATION}/initqc/trimmomatic ${file}
+            if [[ -f ${file} ]]; then
+                mv -t ${DESTDIR}/initqc/trimmomatic ${file}
+            fi
         done
-        rm ${output}/trimmomatic
+        rmdir ${output}/trimmomatic
         echo "trimmomatic_folder_moved"
     fi
     
