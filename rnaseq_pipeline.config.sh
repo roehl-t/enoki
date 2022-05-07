@@ -82,7 +82,6 @@ PANTHERFPKM=${scripts}/map_panther_fpkm.R
 TRIMMOMATICADAPTERS="/Applications/Trimmomatic-0.38/adapters/TruSeq3-PE-2.fa" # pick the file that has your adapters
 FASTQLOC="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/data/data_qc_done"
 GENOME="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/genome_assemblies_all_files/ncbi-genomes-2021-11-01/GCA_011800155.1_ASM1180015v1/GCA_011800155.1_ASM1180015v1_genomic.fna"
-GENOMEIDX="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/genome_assemblies_all_files/ncbi-genomes-2021-11-01/GCA_011800155.1_ASM1180015v1/fvIndex"
 # notes for pheotype data file (see example file)
     # do not use spaces in your column names!
     # must include a column labeled "ids" that matches the sample IDs used in the filenames
