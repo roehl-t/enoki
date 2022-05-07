@@ -675,7 +675,7 @@ initproc() {
     
     for ((i=0; i<=${#reads1[@]}-1; i++ )); do
         sample="${reads1[$i]##*/}"
-        sample="${sample%%.*}"
+        sample="${sample%%_out_*}"
         echo "Sample name: " ${sample}
 
         # in case of interruption, skip finished files
@@ -694,7 +694,7 @@ initproc() {
             echo "[$stime]    * Alignment of reads to genome (HISAT2)"
             
             if [[ ${USEUNPAIRED} == "Y" ]]; then
-                $HISAT2 -p $NUMCPUS --dta -x ${indexloc} \
+                $HISAT2 -p $NUMCPUS --dta -x ${indexloc}/index \
                  -1 ${reads1[$i]} \
                  -2 ${reads2[$i]} \
                  -S ${temploc}/${sample}.sam 2>${alignloc}/${sample}.alnstats \
@@ -704,7 +704,7 @@ initproc() {
                  #defaults kept for strandedness, alignment, and scoring options
                  
              else
-                $HISAT2 -p $NUMCPUS --dta -x ${indexloc} \
+                $HISAT2 -p $NUMCPUS --dta -x ${indexloc}/index \
                  -1 ${reads1[$i]} \
                  -2 ${reads2[$i]} \
                  -S ${temploc}/${sample}.sam 2>${alignloc}/${sample}.alnstats \
