@@ -580,36 +580,50 @@ initqc() {
     fi
     if [[ ${skip} == "N" ]]; then
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> File Management..."
-        
-        # empty local input folder (it should already be empty)
-        emptydir ${input}
-        
+
         # remove fqtrim2 folder
-        mv -t ${DESTDIR}/initqc/fqtrim2 ${output}/fqtrim2/*
-        rm ${output}/fqtrim2
+        for file in ${output}/fqtrim2/*; do
+            if [[ -f ${file} ]]; then
+                mv -t ${DESTDIR}/initqc/fqtrim2 ${file}
+            fi
+        done
+        if [[ -d ${output}/fqtrim2 ]]; then
+            rmdir ${output}/fqtrim2
+        fi
         
         # copy all remaining output files to destination
-        cp -t ${DESTDIR}/initqc ${output}/*
+        cp -r -t ${DESTDIR}/initqc ${output}/*
         
         # move needed output files to input
             # paired files
-        mv -t ${input} ${output}/interleave/*_out_pairs_*.fastq
-        if [[ ${USEPAIRS} == "Y" ]]; then
+        for file in ${output}/interleave/*_out_pairs_*.fastq; do
+            if [[ -f ${file} ]]; then
+                mv -t ${input} ${file}
+            fi
+        done
+        if [[ ${USEUNPAIRED} == "Y" ]]; then
             # unpaired fqtrim1 files
-            mv -t ${input} ${output}/fqtrim1/*U.fq
+            for file in ${output}/fqtrim1/*U.fqtrimmed.fq; do
+                if [[ -f ${file} ]]; then
+                    mv -t ${input} ${file}
+                fi
+            done
             # unpaired interleaved files
-            mv -t ${input} ${output}/interleave/*_out_unpaired.fastq
+            for file in ${output}/interleave/*_out_unpaired.fastq; do
+                if [[ -f ${file} ]]; then
+                    mv -t ${input} ${file}
+                fi
+            done
         fi
         
         # empty ouptut folder
         emptydir ${output}
-        
+
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> initqc_file_management_complete"
     fi
     
     
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> initqc_complete"
-    initqcsuccess="T"
 }
 
 
@@ -621,6 +635,10 @@ initproc() {
     if [[ ! -d ${temploc} ]]; then
         mkdir ${temploc}
     fi
+    indexloc=${output}/genome_index
+    if [[ ! -d ${indexloc} ]]; then
+        mkdir ${indexloc}
+    fi
     alignloc=${output}/aligned
     if [[ ! -d ${alignloc} ]]; then
         mkdir ${alignloc}
@@ -630,15 +648,30 @@ initproc() {
         mkdir ${unmappeddir}
     fi
     
-    ############################################################### check file names
+    # create genome index
+    skip="N"
+    chklog "genome_index_completed"
+    if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
+        skip="Y"
+    fi
+    if [[ ${skip} == "N" ]]; then
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Indexing the genome..."
+        
+        ${HISAT2}-build -q -p ${NUMCPUS} --seed 12345 ${GENOME} ${indexloc}/index
+        
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> genome_index_completed"
+    fi
+    
     
     # the final qality controlled sequences should all be in the local input folder
-    # samples should have the same prefix and may have the suffixes: _1U.fq _2U.fq _out_pairs_fwd.fastq _out_pairs_rev.fastq _out_unpaired.fastq
+    # samples should have the same prefix and may have the suffixes: _1U.fqtrimmed.fq _2U.fqtrimmed.fq _out_pairs_fwd.fastq _out_pairs_rev.fastq _out_unpaired.fastq
     reads1=(${input}/*_out_pairs_fwd.fastq)
     reads2=("${reads1[@]/_fwd./_rev.}")
-    unpaired1=("${reads1[@]/_pairs_fwd/_unpaired}")
-    unpaired2=(${input}/*_1U.fqtrimmed.fq)
-    unpaired3=("${unpaired2[@]/_1U/_2U}")
+    if [[ ${USEUNPAIRED} == "Y" ]]; then
+        unpaired1=("${reads1[@]/_pairs_fwd/_unpaired}")
+        unpaired2=(${input}/*_1U.fqtrimmed.fq)
+        unpaired3=("${unpaired2[@]/_1U/_2U}")
+    fi
     
     for ((i=0; i<=${#reads1[@]}-1; i++ )); do
         sample="${reads1[$i]##*/}"
@@ -658,10 +691,10 @@ initproc() {
             unpairedBoth=${unpaired1[$i]},${unpaired2[$i]},${unpaired3[$i]}
             stime=`date +"%Y-%m-%d %H:%M:%S"`
             echo "[$stime] Processing sample: $sample"
-            echo [$stime] "   * Alignment of reads to genome (HISAT2)"
+            echo "[$stime]    * Alignment of reads to genome (HISAT2)"
             
             if [[ ${USEUNPAIRED} == "Y" ]]; then
-                $HISAT2 -p $NUMCPUS --dta -x ${GENOMEIDX} \
+                $HISAT2 -p $NUMCPUS --dta -x ${indexloc} \
                  -1 ${reads1[$i]} \
                  -2 ${reads2[$i]} \
                  -S ${temploc}/${sample}.sam 2>${alignloc}/${sample}.alnstats \
@@ -669,8 +702,9 @@ initproc() {
                  --seed 12345 --un-gz ${BASEDIR}/unmapped \
                  --un-conc ${unmappedloc}
                  #defaults kept for strandedness, alignment, and scoring options
+                 
              else
-                $HISAT2 -p $NUMCPUS --dta -x ${GENOMEIDX} \
+                $HISAT2 -p $NUMCPUS --dta -x ${indexloc} \
                  -1 ${reads1[$i]} \
                  -2 ${reads2[$i]} \
                  -S ${temploc}/${sample}.sam 2>${alignloc}/${sample}.alnstats \
@@ -699,6 +733,8 @@ initproc() {
              # -m kept at default of 0.01
              
              echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> initproc_${sample}_complete"
+        else
+           echo "    ${sample} logged as completed, skipping..."
         fi
     done
     
@@ -749,7 +785,6 @@ initproc() {
     fi
     
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> initproc_complete"
-    initprocsuccess="T"
 }
 
 
@@ -1007,7 +1042,6 @@ listprep() {
     fi
     
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> listprep_complete"
-    listprepsuccess="T"
 }
 
 
@@ -1501,7 +1535,6 @@ mojo() {
     fi
     
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> mojo_${setname}_complete"
-    mojosuccess="T"
 }
 
 
@@ -1581,10 +1614,6 @@ done
 
 echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> START: " $0 $SCRIPTARGS
 
-# check that required files are present for block 1
-echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Checking programs for part 1..."
-chkprog 1
-
 # (if skip) check if initial QC was previously completed - if so, skip initial QC
 skip="N"
 chklog "initqc_complete"
@@ -1592,13 +1621,16 @@ if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
     skip="Y"
 fi
 if [[ ${skip} == "N" ]]; then
-    
-    initqcsuccess="F"
+
+    # check that required files are present for block 1
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Checking programs for part 1..."
+    chkprog 1
 
     # do initial QC
     initqc 2>&1 | tee -a $LOGFILE
     
-    if [[ ${initqcsuccess} == "F" ]]; then
+    chklog "initqc_complete"
+    if [[ ${chkresult} == "F" ]]; then
         exit 1
     fi
     
@@ -1606,9 +1638,6 @@ fi
 
 
 
-# check that required files are present for block 2
-echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Checking programs for part 2..."
-chkprog 2
 # (if skip) check if initial analysis was previously completed - if so, skip inital analysis
 skip="N"
 chklog "initproc_complete"
@@ -1616,13 +1645,16 @@ if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
     skip="Y"
 fi
 if [[ ${skip} == "N" ]]; then
-    
-    initprocsuccess="F"
+
+    # check that required files are present for block 2
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Checking programs for part 2..."
+    chkprog 2
 
     # do initial analysis
     initproc 2>&1 | tee -a $LOGFILE
     
-    if [[ ${initprocsuccess} == "F" ]]; then
+    chklog "initproc_complete"
+    if [[ ${chkresult} == "F" ]]; then
         exit 1
     fi
     
@@ -1630,9 +1662,6 @@ fi
 
 
 
-# check that required files are present for block 3
-echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Checking programs for part 3..."
-chkprog 3
 # (if skip) check if initial analysis was previously completed - if so, skip inital analysis
 skip="N"
 chklog "listprep_complete"
@@ -1640,13 +1669,15 @@ if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
     skip="Y"
 fi
 if [[ ${skip} == "N" ]]; then
-    
-    listprepsuccess="F"
+    # check that required files are present for block 3
+    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Checking programs for part 3..."
+    chkprog 3
 
     # prepare removelists
     listprep 2>&1 | tee -a $LOGFILE
     
-    if [[ ${listprepsuccess} == "F" ]]; then
+    chklog "listprep_complete"
+    if [[ ${chkresult} == "F" ]]; then
         exit 1
     fi
     
@@ -1669,12 +1700,11 @@ for ((index=0; index<${#SETNAMES[@]}; index++ )); do
     fi
     if [[ ${skip} == "N" ]]; then
         
-        mojosuccess="F"
-        
         # perform main analyses
         mojo ${SETNAMES[index]} ${REMOVELISTS[index]} ${COVARIATES[index]} ${ADJVARSETS[index]} 2>&1 | tee -a $LOGFILE
         
-        if [[ ${mojosuccess} == "F" ]]; then
+        chklog "mojo_${SETNAMES[index]}_complete"
+        if [[ ${chkresult} == "F" ]]; then
             exit 1
         fi
         
