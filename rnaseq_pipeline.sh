@@ -753,25 +753,22 @@ initproc() {
         
         # empty and delete temp folder
         emptydir ${temp}
-        rm ${temp}
+        rmdir ${temp}
         
         # copy final files to local input folder
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Copying necessary files to input folder"
-            # in case the process was interrupted after moving /interleave but before reaching completing file management, avoid errors by first checking to see if the /aligned folder is still in the output folder
-        if [[ -d ${alignloc} ]]; then
-            for file in ${alignloc}/*.gtf; do
+        for file in ${alignloc}/*.gtf; do
+            if [[ -f ${file} ]]; then
                 basename=${file##*/}
-                echo ${basename}
-
                 cp ${file} ${input}/${basename}
-            done
-            for file in ${alignloc}/*.bam; do
+            fi
+        done
+        for file in ${alignloc}/*.bam; do
+            if [[ -f ${file} ]]; then
                 basename=${file##*/}
-                echo ${basename}
-
                 cp ${file} ${input}/${basename}
-            done
-        fi
+            fi
+        done
 
         # move contents of output folder to destination folder
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Moving files to destination folder"
@@ -779,7 +776,7 @@ initproc() {
             mkdir ${DESTDIR}/initproc
         fi
 
-        mv ${output}/* ${DESTDIR}/initproc
+        mv -t ${DESTDIR}/initproc ${output}/*
         
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> initproc_file_management_complete"
     fi
