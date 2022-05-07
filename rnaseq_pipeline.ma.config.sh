@@ -18,11 +18,11 @@ LOGLOC=/home/thomas/Documents/workspace/mojo-test/logs
 DATADIR="/mnt/raid1/Flammulina_velutipes_development/Data/sequences/data_all"
 
 # sequencing batches -- if data was sequenced multiple times (such that each sample has multiple files for forward and reverse reads) they will need to be concatenated. Add the filename pattern that distinguishes each batch here.
-SEQBATCHES=("_L001_001" "_L001_002")
+SEQBATCHES=("_001" "_002")
 # use this if there is only one batch of data: SEQBATCHES=("none")
 
 # forward/reverse labels -- the filename patterns that distinguish forward and reverse samples, list the forward pattern first
-FWDREV=("_R1" "_R2")
+FWDREV=("_L001_R1" "_L001_R2")
 
 # use unpaired reads? -- either Y to use the unpaired reads or N to ignore them
 USEUNPAIRED=Y
@@ -47,9 +47,9 @@ NUMCPUS=12
 FASTQC=/home/thomas/bioinformatics/FastQC/fastqc
 FQTRIM=/home/thomas/bioinformatics/fqtrim-0.9.7.Linux_x86_64/fqtrim
 TRIMMOMATIC=/home/thomas/bioinformatics/Trimmomatic-0.39/trimmomatic-0.39.jar
-HISAT2=/home/thomas/bioinformatics/hisat2-2.2.1/hisat2
+HISAT2=/bin/hisat2
 STRINGTIE=/home/thomas/bioinformatics/stringtie-2.2.1.Linux_x86_64/stringtie
-SAMTOOLS=/home/thomas/bioinformatics/samtools-1.15/samtools
+SAMTOOLS=/bin/samtools
 GFFREAD=/home/thomas/bioinformatics/gffread-0.12.7.Linux_x86_64/gffread
 BLASTXAPP=/home/thomas/bioinformatics/ncbi-blast-2.13.0+/bin/blastx
 BLASTNAPP=/home/thomas/bioinformatics/ncbi-blast-2.13.0+/bin/blastn
@@ -80,8 +80,7 @@ PANTHERFPKM=${scripts}/map_panther_fpkm.R
 ## parameter is provided to the main pipeline script)
 
 TRIMMOMATICADAPTERS="/home/thomas/bioinformatics/Trimmomatic-0.39/adapters/TruSeq3-PE-2.fa" # pick the file that has your adapters
-GENOME="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/genome_assemblies_all_files/ncbi-genomes-2021-11-01/GCA_011800155.1_ASM1180015v1/GCA_011800155.1_ASM1180015v1_genomic.fna"
-GENOMEIDX="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/genome_assemblies_all_files/ncbi-genomes-2021-11-01/GCA_011800155.1_ASM1180015v1/fvIndex"
+GENOME="/mnt/raid1/Flammulina_velutipes_development/Data/fv_genome_fujian_2020/GCA_011800155.1_ASM1180015v1_genomic.fna"
 # notes for pheotype data file (see example file)
     # do not use spaces in your column names!
     # must include a column labeled "ids" that matches the sample IDs used in the filenames
