@@ -44,9 +44,15 @@ EOF
 ### convenience method for emptying folders
     # pass folder you want to empty as a parameter when calling this function
     # specified folder will not be deleted, but all its contents will be removed
+    # if statement to protect files from deletion outside working directory
 emptydir() {
     folder=$1
-    rm -rf ${folder}/*
+    if [[ ${WRKDIR} == ${folder}* ]]; then
+        rm -rf ${folder}/*
+    else
+        echo "bad rm location: ${file}"
+        exit 1
+    fi
 }
 
 
@@ -686,7 +692,7 @@ initproc() {
         fi
         if [[ ${skip} == "N" ]]; then
         
-            unmappedloc=${unmappeddir}/${sample}
+            unmappedloc=${unmappeddir}/${sample}_unmapped.txt
 
             unpairedBoth=${unpaired1[$i]},${unpaired2[$i]},${unpaired3[$i]}
             stime=`date +"%Y-%m-%d %H:%M:%S"`
@@ -699,7 +705,7 @@ initproc() {
                  -2 ${reads2[$i]} \
                  -S ${temploc}/${sample}.sam 2>${alignloc}/${sample}.alnstats \
                  -U ${unpairedBoth} \
-                 --seed 12345 --un-gz ${BASEDIR}/unmapped \
+                 --seed 12345 --un ${unmappedloc} \
                  --un-conc ${unmappedloc}
                  #defaults kept for strandedness, alignment, and scoring options
                  
@@ -708,7 +714,7 @@ initproc() {
                  -1 ${reads1[$i]} \
                  -2 ${reads2[$i]} \
                  -S ${temploc}/${sample}.sam 2>${alignloc}/${sample}.alnstats \
-                 --seed 12345 --un-gz ${BASEDIR}/unmapped \
+                 --seed 12345 --un ${unmappedloc} \
                  --un-conc ${unmappedloc}
                  #defaults kept for strandedness, alignment, and scoring options
              fi
@@ -752,8 +758,8 @@ initproc() {
         emptydir ${input}
         
         # empty and delete temp folder
-        emptydir ${temp}
-        rmdir ${temp}
+        emptydir ${temploc}
+        rmdir ${temploc}
         
         # copy final files to local input folder
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Copying necessary files to input folder"
