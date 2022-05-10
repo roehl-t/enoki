@@ -12,10 +12,10 @@
 #### User Options ####
 
 # location for all log files
-LOGLOC=/home/thomas/Documents/workspace/mojo-test/logs
+LOGLOC=/home/thomas/workspace/mojo-test/logs
 
 # data directory -- location of the .fastq.gz files. All data files should be in a single directory. Please begin with the .fastq.gz file format or edit rnaseq_pipeline.sh to match the one you have.
-DATADIR="/mnt/raid1/Flammulina_velutipes_development/Data/sequences/data_all"
+DATADIR="/mnt/raid1/Flammulina-velutipes_development/Data/sequences/data_all"
 
 # sequencing batches -- if data was sequenced multiple times (such that each sample has multiple files for forward and reverse reads) they will need to be concatenated. Add the filename pattern that distinguishes each batch here.
 SEQBATCHES=("_001" "_002")
@@ -29,12 +29,12 @@ USEUNPAIRED=Y
 
 # working directory -- where to put files that are being worked on currently
   # hint: use an SSD for speed improvement
-WRKDIR=/home/thomas/Documents/workspace/mojo-test
+WRKDIR=/home/thomas/workspace/mojo-test
 
 # final directory -- where the files should go for storage
   # hint: use a large drive
   ## must have a different name than the working directory
-DESTDIR="/mnt/raid1/Flammulina_velutipes_development/Data/mojo-test"
+DESTDIR="/mnt/raid1/Flammulina-velutipes_development/Data/mojo-test"
 
 # how many CPUs to use on the current machine?
 NUMCPUS=12
@@ -44,19 +44,19 @@ NUMCPUS=12
 #if these programs are not in any PATH directories, please edit accordingly:
 
 ## paths for programs not in enoki
-FASTQC=/home/thomas/bioinformatics/FastQC/fastqc
+FASTQC=/bin/fastqc
 FQTRIM=/home/thomas/bioinformatics/fqtrim-0.9.7.Linux_x86_64/fqtrim
 TRIMMOMATIC=/home/thomas/bioinformatics/Trimmomatic-0.39/trimmomatic-0.39.jar
 HISAT2=/bin/hisat2
-STRINGTIE=/home/thomas/bioinformatics/stringtie-2.2.1.Linux_x86_64/stringtie
+STRINGTIE=/bin/stringtie
 SAMTOOLS=/bin/samtools
-GFFREAD=/home/thomas/bioinformatics/gffread-0.12.7.Linux_x86_64/gffread
+GFFREAD=/bin/gffread
 BLASTXAPP=/home/thomas/bioinformatics/ncbi-blast-2.13.0+/bin/blastx
 BLASTNAPP=/home/thomas/bioinformatics/ncbi-blast-2.13.0+/bin/blastn
 PANTHERSCORE=/home/thomas/bioinformatics/pantherScore2.2/pantherScore2.2.pl
 
 ## paths for programs included in enoki
-scripts=/mnt/raid1/Flammulina_velutipes_development/scripts-test
+scripts=/mnt/raid1/Flammulina-velutipes_development/scripts-test
 # all these should be in the same folder
   # if they are, simply update scripts= with the name of the folder
   # if scripts are in separate folders, update all the variables below
@@ -80,18 +80,18 @@ PANTHERFPKM=${scripts}/map_panther_fpkm.R
 ## parameter is provided to the main pipeline script)
 
 TRIMMOMATICADAPTERS="/home/thomas/bioinformatics/Trimmomatic-0.39/adapters/TruSeq3-PE-2.fa" # pick the file that has your adapters
-GENOME="/mnt/raid1/Flammulina_velutipes_development/Data/fv_genome_fujian_2020/GCA_011800155.1_ASM1180015v1_genomic.fna"
+GENOME="/mnt/raid1/Flammulina-velutipes_development/Data/fv_genome_fujian_2020/GCA_011800155.1_ASM1180015v1_genomic.fna"
 # notes for pheotype data file (see example file)
     # do not use spaces in your column names!
     # must include a column labeled "ids" that matches the sample IDs used in the filenames
-PHENODATA="/mnt/raid1/Flammulina_velutipes_development/Data/mojo-test/sample-data-for-pipeline.csv"
+PHENODATA="/mnt/raid1/Flammulina-velutipes_development/Data/mojo-test/sample-data-for-pipeline.csv"
 BLASTDIR="/home/thomas/bioinformatics/ncbi-blast-2.13.0+/bin"
 PANTHERLIBDIR="/home/thomas/bioinformatics/PANTHER17.0_fasta" # download and extract any one of the .tgz files (all contain same data) from http://data.pantherdb.org/ftp/panther_library/current_release/
 
 
 ## list of data for BLAST
-RRNAFILE="/mnt/raid1/Flammulina_velutipes_development/Data/mojo-test/references/rrna/fungi.rRNA.fna"
-UNIPROTFILE="/mnt/raid1/Flammulina_velutipes_development/Data/mojo-test/references/uniprot-taxonomy 5338.fasta"
+RRNAFILE="/mnt/raid1/Flammulina-velutipes_development/Data/mojo-test/references/rrna/fungi.rRNA.fna"
+UNIPROTFILE="/mnt/raid1/Flammulina-velutipes_development/Data/mojo-test/references/uniprot-taxonomy 5338.fasta"
 
 
 ## sample subset declarations
