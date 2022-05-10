@@ -175,6 +175,51 @@ chkprog() {
         exit 1
     else
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> All programs found."
+        
+        # log version information for programs not in the mojo package
+        if [[ ${blockno} == 1 ]]; then
+        
+            ${FASTQC} -v >> ${versionfile}
+            
+            fqtrimversion=$( (${FQTRIM}) | grep "fqtrim v")
+            fqtrimversion=${fqtrimversion%. U*}
+            echo ${fqtrimversion} >> ${versionfile}
+            
+            echo "Trimmomatic " >>  ${versionfile}
+            java -jar ${TRIMMOMATIC} -version >> ${versionfile}
+            
+        elif [[ ${blockno} == 2 ]]; then
+            
+            samtoolsversion=$( ${SAMTOOLS} --version-only )
+            echo "SamTools v${samtoolsversion}" >> ${versionfile}
+            
+            hisatversion=$( (${HISAT2} --version) | grep "version" )
+            hisatversion=${hisatversion##*version }
+            echo "hisat2 v${hisatversion}" >> ${versionfile}
+            
+            stringtieversion=$( (${STRINGTIE} --version) )
+            echo "StringTie v${stringtieversion}" >> ${versionfile}
+            
+        elif [[ ${blockno} == 3 ]]; then
+            
+            ${BLASTNAPP} -version >> ${versionfile}
+            
+            rversion=$( (R --version) | grep "version" )
+            echo ${rversion} >> ${versionfile}
+            
+        elif [[ ${blockno} == 4 ]]; then
+            
+            ${BLASTXAPP} -version >> ${versionfile}
+            
+            # ballgown version must be accessed through R
+            
+            # pantherscore version cannot be accessed from program itself
+            ${pantherscoreversion}=${PANTHERSCORE##*/}
+            ${pantherscoreversion}=${pantherscoreversion%*.pl}
+            ${pantherscoreversion}=${pantherscoreversion/Score/Score }
+            echo ${pantherscoreversion} >> ${versionfile}
+            
+        fi
     fi
 
 }
