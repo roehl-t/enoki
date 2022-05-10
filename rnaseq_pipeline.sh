@@ -185,7 +185,7 @@ chkprog() {
             fqtrimversion=${fqtrimversion%. U*}
             echo ${fqtrimversion} >> ${versionfile}
             
-            echo "Trimmomatic " >>  ${versionfile}
+            echo "Trimmomatic v" | tr -d '\n' >>  ${versionfile}
             java -jar ${TRIMMOMATIC} -version >> ${versionfile}
             
         elif [[ ${blockno} == 2 ]]; then
