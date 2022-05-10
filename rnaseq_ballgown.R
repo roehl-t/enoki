@@ -43,6 +43,19 @@ library(ggrepel)
 #setwd(wrkdir)
 
 
+# add ballgown version information to version_info.txt if it hasn't already been logged
+versionlogfile <- paste(logloc, "/version_info.txt", sep = "")
+if(file.exists(versionlogfile)){
+    ballgownversion <- paste("ballgown v", packageVersion("ballgown"), sep = "")
+    versionlog <- read.delim(versionlogfile)
+    if(! grepl(ballgownversion, versionlog)){
+        write(ballgownversion, file = versionlogfile, append = T)
+    }
+} else {
+    print("could not open version info file to write ballgown version information")
+}
+
+
 ## Read phenotype sample data
 pheno_data <- read.csv(pheno_data_file, header=TRUE, stringsAsFactors=F)
 print("Phenotypic data read")
