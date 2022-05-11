@@ -10,11 +10,7 @@ Usage:
 Wrapper script for HISAT2/StringTie RNA-Seq analysis protocol.
 In order to configure the pipeline options (input/output files etc.)
 please copy and edit a file rnaseq_pipeline.config.sh which must be
-placed in the current (working) directory where this script is being launched.
-
-Output directories "hisat2" and "ballgown" will be created in the 
-current working directory or, if provided, in the given <output_dir>
-(which will be created if it does not exist).
+added as a command line argument to this script.
 
 EOF
 }
@@ -47,10 +43,10 @@ EOF
     # if statement to protect files from deletion outside working directory
 emptydir() {
     folder=$1
-    if [[ ${WRKDIR} == ${folder}* ]]; then
+    if [[ ${folder} == ${WRKDIR}* ]]; then
         rm -rf ${folder}/*
     else
-        echo "bad rm location: ${file}"
+        echo "bad rm location: ${folder}"
         exit 1
     fi
 }
@@ -177,39 +173,97 @@ chkprog() {
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> All programs found."
         
         # log version information for programs not in the mojo package
+        set +e
         if [[ ${blockno} == 1 ]]; then
         
-            ${FASTQC} -v >> ${versionfile}
+            fastqcversion=$( ${FASTQC} -v )
+            versionfound=$( grep -c "${fastqcversion}" ${versionfile} )
+            if [[ $versionfound < 1 ]]; then
+                echo ${fastqcversion} >> ${versionfile}
+            fi
             
-            fqtrimversion=$( (${FQTRIM}) | grep "fqtrim v")
+            versiontemp=${LOGLOC}/versiontemp.txt
+            ${FQTRIM} 2> ${versiontemp}
+            fqtrimversion=$(grep "fqtrim v" ${versiontemp})
             fqtrimversion=${fqtrimversion%. U*}
-            echo ${fqtrimversion} >> ${versionfile}
+            versionfound=$( grep -c "${fqtrimversion}" ${versionfile} )
+            if [[ $versionfound < 1 ]]; then
+                echo ${fqtrimversion} >> ${versionfile}
+            fi
+            rm ${versiontemp}
             
-            echo "Trimmomatic v" | tr -d '\n' >>  ${versionfile}
-            java -jar ${TRIMMOMATIC} -version >> ${versionfile}
+            trimmomaticversion=$( java -jar ${TRIMMOMATIC} -version )
+            trimmomaticversion="Trimmomatic v${trimmomaticversion}"
+            versionfound=$( grep -c "${trimmomaticversion}" ${versionfile} )
+            if [[ $versionfound < 1 ]]; then
+                echo ${trimmomaticversion} >> ${versionfile}
+            fi
             
         elif [[ ${blockno} == 2 ]]; then
             
             samtoolsversion=$( ${SAMTOOLS} --version-only )
-            echo "SamTools v${samtoolsversion}" >> ${versionfile}
+            samtoolsversion="SamTools v${samtoolsversion}"
+            versionfound=$( grep -c "${samtoolsversion}" ${versionfile} )
+            if [[ $versionfound < 1 ]]; then
+                echo ${samtoolsversion} >> ${versionfile}
+            fi
             
             hisatversion=$( (${HISAT2} --version) | grep "version" )
             hisatversion=${hisatversion##*version }
-            echo "hisat2 v${hisatversion}" >> ${versionfile}
+            hisatversion="hisat2 v${hisatversion}"
+            versionfound=$( grep -c "${hisatversion}" ${versionfile} )
+            if [[ $versionfound < 1 ]]; then
+                echo ${hisatversion} >> ${versionfile}
+            fi
             
             stringtieversion=$( (${STRINGTIE} --version) )
-            echo "StringTie v${stringtieversion}" >> ${versionfile}
+            stringtieversion="StringTie v${stringtieversion}"
+            versionfound=$( grep -c "${stringtieversion}" ${versionfile} )
+            if [[ $versionfound < 1 ]]; then
+                echo ${stringtieversion} >> ${versionfile}
+            fi
             
         elif [[ ${blockno} == 3 ]]; then
+        
+            stringtieversion=$( (${STRINGTIE} --version) )
+            stringtieversion="StringTie v${stringtieversion}"
+            versionfound=$( grep -c "${stringtieversion}" ${versionfile} )
+            if [[ $versionfound < 1 ]]; then
+                echo ${stringtieversion} >> ${versionfile}
+            fi
             
-            ${BLASTNAPP} -version >> ${versionfile}
+            blastnversion=$( ${BLASTNAPP} -version )
+            versionfound=$( grep -c "${blastnversion}" ${versionfile} )
+            if [[ $versionfound < 1 ]]; then
+                echo ${blastnversion} >> ${versionfile}
+            fi
             
             rversion=$( (R --version) | grep "version" )
-            echo ${rversion} >> ${versionfile}
+            versionfound=$( grep -c "${rversion}" ${versionfile} )
+            if [[ $versionfound < 1 ]]; then
+                echo ${rversion} >> ${versionfile}
+            fi
             
         elif [[ ${blockno} == 4 ]]; then
+        
+            stringtieversion=$( (${STRINGTIE} --version) )
+            stringtieversion="StringTie v${stringtieversion}"
+            versionfound=$( grep -c "${stringtieversion}" ${versionfile} )
+            if [[ $versionfound < 1 ]]; then
+                echo ${stringtieversion} >> ${versionfile}
+            fi
             
-            ${BLASTXAPP} -version >> ${versionfile}
+            blastnversion=$( ${BLASTNAPP} -version )
+            versionfound=$( grep -c "${blastnversion}" ${versionfile} )
+            if [[ $versionfound < 1 ]]; then
+                echo ${blastnversion} >> ${versionfile}
+            fi
+            
+            blastxversion=$( ${BLASTXAPP} -version )
+            versionfound=$( grep -c "${blastxversion}" ${versionfile} )
+            if [[ $versionfound < 1 ]]; then
+                echo ${blastxversion} >> ${versionfile}
+            fi
             
             # ballgown version must be accessed through R
             
@@ -217,9 +271,13 @@ chkprog() {
             ${pantherscoreversion}=${PANTHERSCORE##*/}
             ${pantherscoreversion}=${pantherscoreversion%*.pl}
             ${pantherscoreversion}=${pantherscoreversion/Score/Score }
-            echo ${pantherscoreversion} >> ${versionfile}
+            versionfound=$( grep -c "${pantherscoreversion}" ${versionfile} )
+            if [[ $versionfound < 1 ]]; then
+                echo ${pantherscoreversion} >> ${versionfile}
+            fi
             
         fi
+        set -e
     fi
 
 }
@@ -357,6 +415,7 @@ initqc() {
     fi
     
     ## file management: move concatenated sequences (no longer needed) to destination
+    echo "File management..."
     if [[ ! -d ${DESTDIR}/initqc ]]; then
         mkdir ${DESTDIR}/initqc
     fi
@@ -1614,6 +1673,7 @@ export PATH="$PATH:${BLASTDIR}:${TRIMMOMATICADAPTERS}"
 
 # check for previous log file - if found, ask user whether to start anew and overwrite or to skip completed files
 LOGFILE=${LOGLOC}/rnaseq_pipeline.log
+versionfile=${LOGLOC}/version_info.txt
 resume="N"
 if [[ -f ${LOGFILE} ]]; then
     chklog "PIPELINE-COMPLETE"
@@ -1625,10 +1685,14 @@ fi
 if [[ ${resume} == "Y" ]] || [[ ${resume} == "y" ]] || [[ ${resume} == "Yes" ]] || [[ ${resume} == "YES" ]] || [[ ${resume} == "yes" ]]; then
     # note: log file can be used as record of previous run because we append to the file so the previous record remains intact
     resume="Y"
+    if [[ ! -f ${versionfile} ]]; then
+        echo "Version information for programs used in mojo pipeline run started at [`date +"%Y-%m-%d %H:%M:%S"`]" > ${versionfile}
+    fi
 else
     resume="N"
     # if not resuming, overwrite log file
     echo "rnaseq_pipeline.sh log begins" > $LOGFILE
+    echo "Version information for programs used in mojo pipeline run started at [`date +"%Y-%m-%d %H:%M:%S"`]" > ${versionfile}
 fi
 
 
