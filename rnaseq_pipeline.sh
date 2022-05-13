@@ -10,7 +10,7 @@ Usage:
 Wrapper script for HISAT2/StringTie RNA-Seq analysis protocol.
 In order to configure the pipeline options (input/output files etc.)
 please copy and edit a file rnaseq_pipeline.config.sh which must be
-added as a command line argument to this script.
+added as a command line argument when calling this script.
 
 EOF
 }
@@ -120,7 +120,7 @@ chkprog() {
         if [[ ! -f $REMOVERRNA ]]; then
             errprog="R rRNA removal"
         fi
-        if [[ ! -f $TRANSCRIPTCOUNT ]]; then
+        if [[ ! -f $TRANSCRIPTCOUNTER ]]; then
             errprog="R transcript counter"
         fi
     fi
@@ -415,7 +415,6 @@ initqc() {
     fi
     
     ## file management: move concatenated sequences (no longer needed) to destination
-    echo "File management..."
     if [[ ! -d ${DESTDIR}/initqc ]]; then
         mkdir ${DESTDIR}/initqc
     fi
@@ -425,6 +424,7 @@ initqc() {
         skip="Y"
     fi
     if [[ ${skip} == "N" && ${needsconcat} == "T" ]]; then
+        echo "File management..."
         mv -t ${DESTDIR}/initqc ${output}/concatenate
         echo "completed_concatenation_mv_to_dest"
     fi
@@ -656,7 +656,7 @@ initqc() {
             base=${output}/interleave/${basename%_*}
             
             skip="N"
-            chklog "${output}/interleave/${base}_out_unpaired.fastq_interleaved"
+            chklog "${base}__interleaved"
             if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
                 skip="Y"
             fi
@@ -669,7 +669,7 @@ initqc() {
                 mv -t ${DESTDIR}/initqc/fqtrim2 ${file}
                 mv -t ${DESTDIR}/initqc/fqtrim2 ${reverse}
                 
-                echo "${output}/interleave/${base}_out_unpaired.fastq_interleaved"
+                echo "${base}__interleaved"
                 
             fi
         done
@@ -900,8 +900,9 @@ initproc() {
 estabund() {
     thisname=$1
     thisout=$2
+    thisremove=$3
 
-    # create merge list
+    # create merge list and merge transcripts
     skip="N"
     chklog "${thisname}_transcripts_merged"
     if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
@@ -913,7 +914,14 @@ estabund() {
         # create file to hold list of files to merge
         touch ${thisout}/mergelist.txt
         ls -1 ${input}/*.gtf > ${thisout}/mergelist.txt
+        
+        # remove lines from transcript list that match samples in the removelist
+        for removestr in ${thisremove}; do
+            grep -v -- ${removestr} ${thisout}/mergelist.txt > ${thisout}/temp.txt
+            mv ${thisout}/temp.txt ${thisout}/mergelist.txt
+        done
 
+        # merge transcripts in list
         $STRINGTIE --merge -p $NUMCPUS \
             -o ${thisout}/stringtie_merged.gtf ${thisout}/mergelist.txt
         
@@ -1083,6 +1091,17 @@ listprep() {
         mkdir ${temp}
     fi
     
+    # scan files for /n and remove any with >3 (first 2 lines are information from StringTie, transcript info begins on 3)
+    # StringTie --merge will fail with an error if you give it a file with 0 transcripts, so those files must be removed beforehand
+    for file in ${input}/*.gtf; do
+        nlcount=$( grep -c "\n" ${file} )
+        if (( ${nlcount} < 3 )); then
+            rmfile=${file##*/}
+            rmfile=${rmfile%.gtf}
+            REMOVEALWAYS="${rmfile} ${REMOVEALWAYS}"
+        fi
+    done
+    
     ## estimate abundance and remove rRNA
     skip="N"
     chklog "listprep_estabund_complete"
@@ -1090,7 +1109,7 @@ listprep() {
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
-        estabund "listprep" ${temp}
+        estabund "listprep" ${temp} "${REMOVEALWAYS}"
     fi
     
     ## for each auto remove list, add samples to that list that are below the cutoff and add any REMOVEALWAYS samples
@@ -1244,7 +1263,7 @@ mojo() {
     fi
     if [[ ${skip} == "N" ]]; then
     
-        estabund ${setname} ${abundances}
+        estabund ${setname} ${abundances} ${removelist}
         
     fi
     
