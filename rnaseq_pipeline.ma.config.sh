@@ -80,7 +80,7 @@ PANTHERFPKM=${scripts}/map_panther_fpkm.R
 ## parameter is provided to the main pipeline script)
 
 TRIMMOMATICADAPTERS="/home/thomas/bioinformatics/Trimmomatic-0.39/adapters/TruSeq3-PE-2.fa" # pick the file that has your adapters
-GENOME="/mnt/raid1/Flammulina-velutipes_development/Data/fv_genome_fujian_2020/GCA_011800155.1_ASM1180015v1_genomic.fna"
+GENOME="/mnt/raid1/Flammulina-velutipes_development/Data/sequences/fv_genome_fujian_2020/GCA_011800155.1_ASM1180015v1_genomic.fna"
 # notes for pheotype data file (see example file)
     # do not use spaces in your column names!
     # must include a column labeled "ids" that matches the sample IDs used in the filenames
@@ -90,8 +90,8 @@ PANTHERLIBDIR="/home/thomas/bioinformatics/PANTHER17.0_fasta" # download and ext
 
 
 ## list of data for BLAST
-RRNAFILE="/mnt/raid1/Flammulina-velutipes_development/Data/mojo-test/references/rrna/fungi.rRNA.fna"
-UNIPROTFILE="/mnt/raid1/Flammulina-velutipes_development/Data/mojo-test/references/uniprot-taxonomy 5338.fasta"
+RRNAFILE="/mnt/raid1/Flammulina-velutipes_development/Data/sequences/rRNA/fungi.rRNA.fna"
+UNIPROTFILE="/mnt/raid1/Flammulina-velutipes_development/Data/sequences/uniprot_agaricales/uniprot-taxonomy 5338.fasta"
 
 
 ## sample subset declarations
@@ -103,15 +103,14 @@ UNIPROTFILE="/mnt/raid1/Flammulina-velutipes_development/Data/mojo-test/referenc
   # to automatically remove samples containing below a certain threshold number of sequences, add "auto-####" to SETNAMES
   # to run the analysis on all samples, add "auto-all" to SETNAMES
   # do not add a removelist for "auto-###" or "auto-all" setnames -- we suggest putting all auto-##### setnames at the end of the SETNAMES list to be sure your manual removelists are in the correct order
-SETNAMES=("auto-all" "300" "5k" "culnor" "priyou")
-removelist2="-51 -50 -48 -45 -39 -21"
-removelist3="-12 -14 -17 -21 -22 -29 -30 -31 -33 -34 -38 -39 -40 -42 -45 -48 -50 -51 -52 -53 -56 -57"
+SETNAMES=("auto-all" "auto-300" "auto-5000" "culnor" "priyou")
 removelist4="-10 -11 -13 -18-B -21 -25 -27 -28 -30 -31 -32 -34 -38 -39 -43 -44 -45 -48 -51 -52 -54-B -55 -56 -57"
 removelist5="-51 -48 -39 -12 -14 -15 -16 -17 -19 -20 -22 -23 -24 -26 -29 -33 -35 -36 -37 -40 -41 -42 -46 -47 -49 -50 -53"
-REMOVELISTS=("${removelist2}" "${removelist3}" "${removelist4}" "${removelist5}")
+REMOVELISTS=("${removelist4}" "${removelist5}")
   # to remove a sample from every set, add it here
     # some files may be too small for StringTie to handle, so list them here as you encounter the errors (although, rnaseq_pipeline.sh should automatically find and remove them for you)
-REMOVEALWAYS="-51 -48 -39"
+REMOVEALWAYS=""
+
 
 
 #### Other Options
