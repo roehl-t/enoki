@@ -49,8 +49,8 @@ if(skipcount == F){
 }
 
 # generate a removelist.txt file for the rnaseq_pipeline.sh script
-countdata <- read.csv(csvname, headers = T)
-countfilt <- countdata[(countdata$transcript_count > cutoff),]
+countdata <- read.csv(csvname, header = T)
+countfilt <- countdata[(countdata$transcript_count < cutoff),]
 outlist <- ""
 first <- T
 for(sample in countfilt$ids){
@@ -58,7 +58,7 @@ for(sample in countfilt$ids){
         outlist <- sample
         first <- F
     } else {
-        outlist <- paste(outlist, " ", sample)
+        outlist <- paste(outlist, sample)
     }
 }
 # do not use name here so that the shell script can find the file
