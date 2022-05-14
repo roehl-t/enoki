@@ -268,9 +268,9 @@ chkprog() {
             # ballgown version must be accessed through R
             
             # pantherscore version cannot be accessed from program itself
-            ${pantherscoreversion}=${PANTHERSCORE##*/}
-            ${pantherscoreversion}=${pantherscoreversion%*.pl}
-            ${pantherscoreversion}=${pantherscoreversion/Score/Score }
+            pantherscoreversion=${PANTHERSCORE##*/}
+            pantherscoreversion=${pantherscoreversion%*.pl}
+            pantherscoreversion=${pantherscoreversion/Score/Score }
             versionfound=$( grep -c "${pantherscoreversion}" ${versionfile} )
             if [[ $versionfound < 1 ]]; then
                 echo ${pantherscoreversion} >> ${versionfile}
@@ -937,7 +937,7 @@ estabund() {
     if [[ ${skip} == "N" ]]; then
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Estimate abundance for each sample (StringTie)"
         
-        samples=${input}/*.bam
+        samples=(${input}/*.bam)
         for ((i=0; i<=${#samples[@]}-1; i++ )); do
             sample="${samples[$i]%%.*}"
             sample="${sample##*/}"
@@ -947,36 +947,27 @@ estabund() {
             if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
                 skip="Y"
             fi
+            # if the sample name matches anything in the current removelist, skip that sample
+        remove="F"
+        for removestr in ${thisremove}; do
+            if [[ "${sample}" == *"${removestr}"* ]]; then
+                skip="Y"
+            fi
+        done
             if [[ ${skip} == "N" ]]; then
             
-                if [ ! -d ${thisout}/abund ]; then
+                if [[ ! -d ${thisout}/abund ]]; then
                     mkdir -p ${thisout}/abund
                 fi
-                if [ ! -d ${thisout}/abund/${sample} ]; then
+                if [[ ! -d ${thisout}/abund/${sample} ]]; then
                     mkdir -p ${thisout}/abund/${sample}
                 fi
                 
-                if [[ ${thisname} == "listprep" ]]; then
-                    set +e # do not exit on errors from the next command
-                fi
-                
-                $STRINGTIE -e -B -p $NUMCPUS -G ${thisout}/stringtie_merged.gtf \
+                # perform abundance estimation
+                $STRINGTIE -e -B -p ${NUMCPUS} -G ${thisout}/stringtie_merged.gtf \
                 -o ${thisout}/abund/${sample}/${sample}.gtf ${input}/${sample}.bam
+                #################################### remove extra stringtie _temp folders?
                 
-                if [[ ${thisname} == "listprep" ]]; then
-                    # handle cases where StringTie returns an error because the file is too small
-                    status=$?
-
-                    set -e # return to default of exiting on any errors
-
-                    if (( status > 0 )); then
-                        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> StringTie error: sample ${sample} will be removed from analysis"
-
-                        REMOVEALWAYS="${REMOVEALWAYS} ${sample}"
-
-                    fi
-                fi
-
                 echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${thisname}_${sample}_abundance_estimated"
             fi
         done
@@ -1014,7 +1005,7 @@ estabund() {
             mkdir ${databases}/rrnadb
         fi
     
-        $BLASTDIR/makeblastdb -in ${RRNAFILE} -out ${databases}/rrnadb -dbtype nucl
+        $BLASTDIR/makeblastdb -in ${RRNAFILE} -out ${databases}/rrnadb/rrnadb -dbtype nucl
         
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> rRNA_DB_created"
     fi
@@ -1029,7 +1020,7 @@ estabund() {
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Query rRNA database with transcroptome (BLASTN)"
 
         $BLASTNAPP -query ${thisout}/transcriptome.fa \
-            -db ${databases}/rrnadb \
+            -db ${databases}/rrnadb/rrnadb \
             -out ${thisout}/rrna_blastn_results.csv \
             -evalue 1e-6 -num_threads ${NUMCPUS} \
             -num_alignments 1 -outfmt "6 qseqid stitle sacc evalue pident bitscore length qstart qend sstart send"
@@ -1055,15 +1046,11 @@ estabund() {
         if [[ ${skip} == "N" ]]; then
             echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Save a copy of original expression tables"
 
-            if [[ -d ${thisout}/rrna_free ]]; then
-                # we want the contents of /abund to be copied to /rrna_free
-                # if /rrna_free exists, cp will instead copy /abund to /rrna_free/abund
-                # to simplify the process, remove /rrna_free, if it exists
-                emptydir ${thisout}/rrna_free
-                rm ${thisout}/rrna_free
+            if [[ ! -d ${thisout}/rrna_free ]]; then
+                mkdir ${thisout}/rrna_free
             fi
             
-            cp -R ${thisout}/abund ${thisout}/rrna_free
+            cp -r -t ${thisout}/rrna_free ${thisout}/abund/*
             
             echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${thisname}_ctabs_copied"
         fi
@@ -1071,7 +1058,7 @@ estabund() {
         # use R script to remove rRNA and overwrite the .ctab files
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Remove rRNA from expression tables (R)"
 
-        Rscript ${REMOVERRNA} ${thisout}/blastn_results.csv ${thisout}/rrna_free ${LOGDIR} ${thisname}
+        Rscript ${REMOVERRNA} ${thisout}/rrna_blastn_results.csv ${thisout}/rrna_free ${LOGLOC} ${thisname}
         
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${thisname}_rRNA_removed"
     fi
@@ -1098,7 +1085,11 @@ listprep() {
         if (( ${nlcount} < 3 )); then
             rmfile=${file##*/}
             rmfile=${rmfile%.gtf}
-            REMOVEALWAYS="${rmfile} ${REMOVEALWAYS}"
+            if (( ${#REMOVEALWAYS} > 0 )); then
+                REMOVEALWAYS="${rmfile} ${REMOVEALWAYS}"
+            else
+                REMOVEALWAYS="${rmfile}"
+            fi
         fi
     done
     
@@ -1122,7 +1113,7 @@ listprep() {
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Checking removelists..."
         
         # run through transcript counter once to generate count file
-        Rscript ${TRANSCRIPTCOUNTER} ${input} ${SETNAMES[i]} ${LOGLOC} ${temp} 0
+        Rscript ${TRANSCRIPTCOUNTER} ${temp}/rrna_free "temp" ${LOGLOC} ${temp} 0
 
         removecounter=0
         newremovelists=()
@@ -1140,31 +1131,54 @@ listprep() {
                 Rscript ${TRANSCRIPTCOUNTER} ${temp}/transcript_counts.csv ${SETNAMES[i]} ${LOGLOC} ${temp} ${cutoff}
                 
                 # extract list from removelist.txt and store as currentremovelist
-                currentremovelist=(cat ${temp}/removelist.txt) ####################################################### does this work?
+                currentremovelist=$(cat ${temp}/removelist.txt)
                 
             else
             # if not auto...
                 # extract next removelist and store as currentremovelist
-                currentremovelist="${REMOVELISTS[removecounter]}"
-                removecounter=${removecounter}+1
+                currentremovelist=${REMOVELISTS[removecounter]}
+                let "removecounter += 1"
                 
             fi
+            currentremovelist="${REMOVEALWAYS} ${currentremovelist}"
+            # to ensure empty lists are still recognized, add parentheses around each item in the list
+            currentremovelist="(${currentremovelist})"
+            currentremovelist="${currentremovelist// /)(}"
+            
             # add currentremovelist to newremovelists
-            echo ${currentremovelist}
             newremovelists+=("${currentremovelist}")
         done
+    
+        # write updated removelists to files for reference
+        ## prep files
+        echo "Auto-generated lists of files to remove" > ${LOGLOC}/removelists.txt
+        echo "" >> ${LOGLOC}/removelists.txt
+        if [[ -f ${input}/removelists.txt ]]; then
+            rm ${input}/removelists.txt
+        fi
+        ## write to files
+        for ((i=0; i<${#SETNAMES[@]}; i++)); do
+            # write human readable file to log location
+            readablelist=${newremovelists[i]//)(/, }
+            readablelist=${readablelist//(/}
+            readablelist=${readablelist//)/}
+            echo ${SETNAMES[i]} >> ${LOGLOC}/removelists.txt
+            echo ${readablelist} >> ${LOGLOC}/removelists.txt
+            echo "" >> ${LOGLOC}/removelists.txt
+            # write machine readable file to input
+            echo ${SETNAMES[i]}_set-${i}_${newremovelists[i]} >> ${input}/removelists.txt
+        done
         
-        REMOVELISTS=${newremovelists}
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> removelists_updated"
     fi
     
-    # end-of-block file management: move transcript_counts.csv to destination and remove /temp
+    # end-of-block file management: remove /temp
     if [[ -f ${temp}/transcript_counts.csv ]]; then
         mv ${temp}/transcript_counts.csv ${DESTDIR}/transcript_counts.csv
     fi
     if [[ -d ${temp} ]]; then
         emptydir ${temp}
-        rm ${temp}
+        rmdir ${temp}
     fi
     
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> listprep_complete"
@@ -1174,10 +1188,10 @@ listprep() {
 ### analysis and visualization
 mojo() {
 
-    setname=$1
-    removelist=$2
-    bg_cov=$3
-    bg_adjvars=$4
+    setname="$1"
+    removelist="$2"
+    bg_cov="$3"
+    bg_adjvars="$4"
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Beginning analysis of sample set ${setname}"
     
     analysis=${DESTDIR}/analysis
@@ -1263,7 +1277,7 @@ mojo() {
     fi
     if [[ ${skip} == "N" ]]; then
     
-        estabund ${setname} ${abundances} ${removelist}
+        estabund ${setname} ${abundances} "${removelist}"
         
     fi
     
@@ -1360,7 +1374,7 @@ mojo() {
             mkdir ${ballgownout}/lists
         fi
 
-        Rscript ${BALLGOWN} ${PHENODATA} ${mojoinabund} ${setname} ${bg_cov} ${bg_adjvars} ${PCAPAIRS} ${ballgownout} ${LOGLOC}
+        Rscript ${BALLGOWN} ${PHENODATA} ${mojoinabund} ${setname} ${bg_cov} "${bg_adjvars}" "${PCAPAIRS}" ${ballgownout} ${LOGLOC}
     
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_ballgown_complete"
     fi
@@ -1386,7 +1400,7 @@ mojo() {
                 mkdir ${dataabses}/protein
             fi
             
-            $BLASTDIR/makeblastdb -in ${UNIPROTFILE} -out ${databases}/protein -dbtype prot
+            $BLASTDIR/makeblastdb -in ${UNIPROTFILE} -out ${databases}/protein/protein -dbtype prot
             
             echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> protein_db_created"
         fi
@@ -1435,7 +1449,7 @@ mojo() {
                     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Query BLAST database for gene names (BLASTX)"
 
                     $BLASTXAPP -query ${filename} \
-                        -db ${databases}/protein \
+                        -db ${databases}/protein/protein \
                         -out ${protout}/${setname}_${currentDEGs}_blastx_results.csv \
                         -evalue 1e-3 -num_threads ${NUMCPUS} \
                         -num_alignments 1 -outfmt "6 qseqid stitle sacc evalue pident bitscore length qstart qend sstart send"
@@ -1793,7 +1807,7 @@ fi
 
 
 
-# (if skip) check if initial analysis was previously completed - if so, skip inital analysis
+# (if skip) check if removelist preparation was previously completed - if so, skip list prep
 skip="N"
 chklog "listprep_complete"
 if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
@@ -1820,7 +1834,7 @@ fi
 echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Checking programs for part 4..."
 chkprog 4
 # for each data subset...
-    # (if skip) check if initial analysis was previously completed - if so, skip inital analysis
+    # (if skip) check if main pipeline was previously completed for each set - if so, skip that set
     # run analysis pipeline (if skip, skip completed files)
 ## run rest of pipeline on various sample sets
 for ((index=0; index<${#SETNAMES[@]}; index++ )); do
@@ -1830,9 +1844,17 @@ for ((index=0; index<${#SETNAMES[@]}; index++ )); do
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
+        # retreive removelist from file (in case pipeline was resumed)
+        set +e
+        thisremovelist=$( grep "_set-${index}_" ${input}/removelists.txt )
+        set -e
+        thisremovelist=${thisremovelist#*_set-${index}_}
+        thisremovelist=${thisremovelist//)(/ }
+        thisremovelist=${thisremovelist//(/}
+        thisremovelist=${thisremovelist//)/}
         
         # perform main analyses
-        mojo ${SETNAMES[index]} ${REMOVELISTS[index]} ${COVARIATES[index]} ${ADJVARSETS[index]} 2>&1 | tee -a $LOGFILE
+        mojo "${SETNAMES[index]}" "${thisremovelist}" "${COVARIATES[index]}" "${ADJVARSETS[index]}" 2>&1 | tee -a $LOGFILE
         
         chklog "mojo_${SETNAMES[index]}_complete"
         if [[ ${chkresult} == "F" ]]; then
