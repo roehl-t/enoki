@@ -13,7 +13,7 @@ runname <- args[4] # name of this run to be used in the log file name
 setwd(workdir)
 
 # create an output log
-zz <- file(paste("./", runname, "remove_rRNA_output_log.txt", sep = ""), open="wt")
+zz <- file(paste("./", runname, "_remove_rRNA_output_log.txt", sep = ""), open="wt")
 sink(zz, type="message")
 
 # read in blast results
