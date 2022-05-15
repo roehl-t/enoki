@@ -43,7 +43,7 @@ NUMCPUS=12
 #### Program paths ####
 #if these programs are not in any PATH directories, please edit accordingly:
 
-## paths for programs not in enoki
+## paths for programs not in enoki (most will automatically install to /bin)
 FASTQC=/bin/fastqc
 FQTRIM=/home/thomas/bioinformatics/fqtrim-0.9.7.Linux_x86_64/fqtrim
 TRIMMOMATIC=/home/thomas/bioinformatics/Trimmomatic-0.39/trimmomatic-0.39.jar
@@ -53,6 +53,7 @@ SAMTOOLS=/bin/samtools
 GFFREAD=/bin/gffread
 BLASTXAPP=/home/thomas/bioinformatics/ncbi-blast-2.13.0+/bin/blastx
 BLASTNAPP=/home/thomas/bioinformatics/ncbi-blast-2.13.0+/bin/blastn
+DOCKER=/bin/docker
 PANTHERSCORE=/home/thomas/bioinformatics/pantherScore2.2/pantherScore2.2.pl
 
 ## paths for programs included in enoki
@@ -104,26 +105,41 @@ UNIPROTFILE="/mnt/raid1/Flammulina-velutipes_development/Data/sequences/uniprot_
   # to run the analysis on all samples, add "auto-all" to SETNAMES
   # do not add a removelist for "auto-###" or "auto-all" setnames -- we suggest putting all auto-##### setnames at the end of the SETNAMES list to be sure your manual removelists are in the correct order
 SETNAMES=("auto-all" "auto-300" "auto-5000" "culnor" "priyou")
+#################removelist2="-51 -50 -48 -45 -39 -21"
+#################removelist3="-12 -14 -17 -21 -22 -29 -30 -31 -33 -34 -38 -39 -40 -42 -45 -48 -50 -51 -52 -53 -56 -57"
 removelist4="-10 -11 -13 -18-B -21 -25 -27 -28 -30 -31 -32 -34 -38 -39 -43 -44 -45 -48 -51 -52 -54-B -55 -56 -57"
 removelist5="-51 -48 -39 -12 -14 -15 -16 -17 -19 -20 -22 -23 -24 -26 -29 -33 -35 -36 -37 -40 -41 -42 -46 -47 -49 -50 -53"
+#################REMOVELISTS=("${removelist2}" "${removelist3}" "${removelist4}" "${removelist5}")
 REMOVELISTS=("${removelist4}" "${removelist5}")
   # to remove a sample from every set, add it here
     # some files may be too small for StringTie to handle, so list them here as you encounter the errors (although, rnaseq_pipeline.sh should automatically find and remove them for you)
+##################REMOVEALWAYS="-51 -48 -39"
 REMOVEALWAYS=""
 
 
 
-#### Other Options
+#### BUSCO options
 
-# BUSCO dataset name -- what taxonomic group should be used as the BUSCO dataset (see instructions BUSCO's website)?
+# what version of BUSCO should be run?
+## check https://hub.docker.com/r/ezlabgva/busco/tags?page=1&ordering=last_updated for latest version "Tag" number
+BUSCOVERSION="v5.3.2_cv1"
+# what taxonomic group should be used as the BUSCO dataset
+## see instructions on https://busco.ezlab.org/
 BUSCODATASET="agaricales_odb10"
+# a short name for the Docker container running BUSCO
+## the tag will be appended to "busco_output_" to generate the Docker container name
+## the docker container name must be one that has never been used before on your machine, so choose a tag that is unique to this dataset
+BUSCOTAG="mojo"
 
-# Ballgown options
-    # to work with more than one set, specify the covariates and confounding variables separately for each set
-    # make sure you specify an equal number of setnames and covariates/confounding variables
-    # only one covariate should be specified for each set
-    # mutliple confounding variables may be specified for each set
-  # column name in the phenotype data file to be used as the covariate by Ballgown
+
+
+#### Ballgown options
+
+# to work with more than one set, specify the covariates and confounding variables separately for each set
+# make sure you specify an equal number of setnames and covariates/confounding variables
+# only one covariate should be specified for each set
+# mutliple confounding variables may be specified for each set
+# column name in the phenotype data file to be used as the covariate by Ballgown
 covset1="tissue"
 covset2="tissue"
 covset3="tissue"
@@ -142,6 +158,10 @@ pcapair1=("batch" "jar")
 pcapair2=("type" "tissue")
 pcapair3=("position")
 PCAPAIRS="${pcapair1};${pcapair2};${pcapair3}"
+
+
+
+#### Other Options
 
 # NCBI API key (if none, type "")
 NCBIAPI=""
