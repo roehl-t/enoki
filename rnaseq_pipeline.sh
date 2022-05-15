@@ -50,6 +50,16 @@ emptydir() {
         exit 1
     fi
 }
+### safety method for removing folders
+removedir() {
+    folder=$1
+    if [[ ${folder} == ${WRKDIR}* ]]; then
+        rmdir ${folder}
+    else
+        echo "bad rmdir location: ${folder}"
+        exit 1
+    fi
+}
 
 
 
@@ -133,6 +143,9 @@ chkprog() {
         fi
         if [[ ! -x $BLASTNAPP ]]; then
             errprog="BLASTN"
+        fi
+        if [[ ! -x $DOCKER ]]; then
+            errprog="Docker"
         fi
         if [[ ! -x $BLASTXAPP ]]; then
             errprog="BLASTX"
@@ -257,6 +270,20 @@ chkprog() {
             versionfound=$( grep -c "${blastnversion}" ${versionfile} )
             if [[ $versionfound < 1 ]]; then
                 echo ${blastnversion} >> ${versionfile}
+            fi
+            
+            dockerversion=$( docker version --format '{{.Client.Version}}' )
+            dockerversion="Docker Client Engine v${dockerversion}"
+            versionfound=$( grep -c "${dockerversion}" ${versionfile} )
+            if [[ $versionfound < 1 ]]; then
+                echo ${dockerversion} >> ${versionfile}
+            fi
+            
+            # Busco version is set by usre in config file
+            buscov="Busco ${BUSCOVERSION}"
+            versionfound=$( grep -c "${buscov}" ${versionfile} )
+            if [[ $versionfound < 1 ]]; then
+                echo ${buscov} >> ${versionfile}
             fi
             
             blastxversion=$( ${BLASTXAPP} -version )
@@ -520,7 +547,7 @@ initqc() {
                 mv -t ${DESTDIR}/initqc/trimmomatic ${file}
             fi
         done
-        rmdir ${output}/trimmomatic
+        removedir ${output}/trimmomatic
         echo "trimmomatic_folder_moved"
     fi
     
@@ -698,7 +725,7 @@ initqc() {
             fi
         done
         if [[ -d ${output}/fqtrim2 ]]; then
-            rmdir ${output}/fqtrim2
+            removedir ${output}/fqtrim2
         fi
         
         # copy all remaining output files to destination
@@ -863,7 +890,7 @@ initproc() {
         
         # empty and delete temp folder
         emptydir ${temploc}
-        rmdir ${temploc}
+        removedir ${temploc}
         
         # copy final files to local input folder
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Copying necessary files to input folder"
@@ -1178,7 +1205,7 @@ listprep() {
     fi
     if [[ -d ${temp} ]]; then
         emptydir ${temp}
-        rmdir ${temp}
+        removedir ${temp}
     fi
     
     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> listprep_complete"
@@ -1289,15 +1316,20 @@ mojo() {
         skip="Y"
     fi
     if [[ ${skip} == "N" ]]; then
-        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Testing Busco completeness..."
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Testing BUSCO completeness..."
 
-        busconame="busco_output_enoki"
+        busconame="busco_output_${BUSCOTAG}"
 
-        if [[ -d ${BALLGOWNLOC}/${busconame} ]]; then
-            busconame="busco_output_enoki_"`date +"%Y-%m-%d_%H-%M-%S"`
+        if [[ -d ${abundances}/${busconame} ]]; then
+            busconame="busco_output_${BUSCOTAG}_"`date +"%Y-%m-%d_%H-%M-%S"`
         fi
+        echo "${DOCKER} run -u $(id -u) -v ${abundances}:/busco_wd/ ezlabgva/busco:${BUSCOVERSION} busco \
+            --mode transcriptome \
+            --in /busco_wd/transcriptome.fa \
+            --out ${busconame} \
+            --lineage_dataset ${BUSCODATASET}"
 
-        docker run -u $(id -u) -v ${abundances}:/busco_wd/ ezlabgva/busco:v4.1.4_cv1 busco \
+        ${DOCKER} run -u "$(id -u):$(id -g)" -v ${abundances}:/busco_wd/ ezlabgva/busco:${BUSCOVERSION} busco \
             --mode transcriptome \
             --in /busco_wd/transcriptome.fa \
             --out ${busconame} \
@@ -1307,6 +1339,7 @@ mojo() {
         # note: all file paths (except in -v) must be relative to the image root directory. In this case, -v maps the image root (/busco_wd/) to ${abundances}/ . As a result, the transcriptome file must be referenced as /busco_wd/transcriptome.fa because it is found in ${abundances}/transcriptome.fa
         # note: --out file must have a name that has never been used for a busco run. Ex: busco was previously run on the same machine with "--out busco_output" so this run must use a new name, "--out busco_output_enoki"
         # note: if script must be run more than once, delete the output directories before running OR make sure to run the busconame if statement above
+        # if the script fails during the docker run, you may want to change the permissions settings (-u option) -- currently, this pipeline uses the active user and group settings from the terminal to specify the docker user and group profiles: -u "$(id -u):$(id -g)"
         
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_busco_complete"
     fi
@@ -1323,8 +1356,8 @@ mojo() {
 
         # transcriptome
         if [[ -f ${abundances}/transcriptome.fa ]]; then
-            cp ${abundances}/transcriptome.fa ${mojoinput}/transcriptome.fa
-            mv ${abundances}/transcriptome.fa ${destination}/products/transcriptome.fa
+            mv ${abundances}/transcriptome.fa ${mojoinput}/transcriptome.fa
+            cp ${mojoinput}/transcriptome.fa ${productdest}/transcriptome.fa
         fi
         # BUSCO results
         buscoresult=${output}/abundances/${busconame}/short_summary*.txt
@@ -1333,25 +1366,28 @@ mojo() {
             cp ${buscoresult} ${productdest}/BUSCO_${buscoresultname}
         fi
         # BUSCO calculations
-        for dir in ${output}/abundances/busco_*; do
-            mv -t ${buscodest} ${dir} 
+        for dir in ${abundances}/busco_*; do
+            mv -t ${buscodest} ${dir}
         done
         # raw abundances
         if [[ -d ${abundances}/abund ]]; then
-            mv ${abundances}/abund ${calcdest}/raw_abundances
+            mv -t ${calcdest}/raw_abundances ${abundances}/abund/*
+            removedir ${abundances}/abund
         fi
         # rRNA removed abundances
         if [[ -d ${abundances}/rrna_free ]]; then
-            mv ${abundances}/rrna_free ${calcdest}/rrna_removed
+            mv -t ${mojoinabund} ${abundances}/rrna_free/*
+            cp -r -t ${calcdest}/rrna_removed ${mojoinabund}/*
+            removedir ${abundances}/rrna_free
         fi
         # anything else that might be left in output/abundances
         for file in ${abundances}/*; do
-            mv -t ${otherdest} file
+            mv -t ${calcdest} ${file}
         done
         # delete output/abundances
         if [[ -d ${abundances} ]]; then
             emptydir ${abundances}
-            rm ${abundances}
+            removedir ${abundances}
         fi
         
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> ${setname}_mojo_files_1_complete"
