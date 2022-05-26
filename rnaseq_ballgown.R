@@ -43,6 +43,12 @@ library(ggrepel)
 #setwd(wrkdir)
 
 
+if(cutoff > 0){
+    cutofftext <- paste(cutoff, "_", sep = "")
+} else {
+    cutofftext <- ""
+}
+
 # add ballgown version information to version_info.txt if it hasn't already been logged
 versionlogfile <- paste(logloc, "/version_info.txt", sep = "")
 if(file.exists(versionlogfile)){
@@ -180,7 +186,7 @@ pheno_data <- pheno_data[,!(names(checkmerge) %in% c("keep"))]
 
 
 ## Read in expression data
-bg_enoki <- ballgown(dataDir = data_dir_loc, samplePattern="ROEHL-FV-", pData=pheno_data)
+bg_mojo <- ballgown(dataDir = data_dir_loc, samplePattern="ROEHL-FV-", pData=pheno_data)
 print("Expression data read")
 
 ## NOTE: If some samples have zero reads mapping to the reference genome, the mergelist.txt file (in the output/hisat2 directory) will not match the phenodata file (pData object). The following error will occur:
@@ -195,13 +201,13 @@ print("Expression data read")
 
 
 ## Filter low abundance genes
-bg_enoki_filt <- subset(bg_enoki, "rowVars(texpr(bg_enoki)) > 1", genomesubset=TRUE)
+bg_mojo_filt <- subset(bg_mojo, "rowVars(texpr(bg_mojo)) > 1", genomesubset=TRUE)
 print("Low abundance genes filtered")
 
 
 ## Generate PCA plots
 # begin with ballgown object
-bg_obj <- bg_enoki_filt
+bg_obj <- bg_mojo_filt
 
 # extract pheno data and move sample IDs ("ids") to row names
 pdata <- indexes(bg_obj)$pData
@@ -217,7 +223,7 @@ colnames(expr) <- sub("FPKM.", '', colnames(expr))
 
 # conduct PCA on expression matrix
 pca_expr <- prcomp(expr)
-sink(paste("./PCA/", "enoki_PCA_results.txt", sep = ""))
+sink(paste("./PCA/", cutofftext, "mojo_PCA_results.txt", sep = ""))
 summary(pca_expr)
 sink()
 #biplot(pca_expr)
@@ -260,20 +266,13 @@ for(pcapair in pcapairs){
     }
     pairname <- paste(pair1, joiner, pair2, sep = "")
     
-    pdf(file = paste("./PCA/", "enoki_pca_", pairname, ".pdf", sep = ""), width = 6, height = 6)
+    pdf(file = paste("./PCA/", cutofftext, "mojo_pca_", pairname, ".pdf", sep = ""), width = 6, height = 6)
     if(length(pcanames) > 1){
-        ggplot(pca_expr_vectors, aes(x = PC1, y = PC2, color = pair1, shape = pair2)) +
-        geom_vline(xintercept = 0, color = "grey") +
-        geom_hline(yintercept = 0, color = "grey") +
-        geom_point() + theme_classic() + theme(text = element_text(family = "serif")) + 
-        geom_text_repel(aes(label = ids), family = "serif")
+        pcaplot <- ggplot(pca_expr_vectors, aes_string(x = "PC1", y = "PC2", color = pair1, shape = pair2)) + geom_vline(xintercept = 0, color = "grey") + geom_hline(yintercept = 0, color = "grey") + geom_point() + theme_classic() + theme(text = element_text(family = "serif")) + geom_text_repel(aes(label = ids), family = "serif")
     } else {
-        ggplot(pca_expr_vectors, aes(x = PC1, y = PC2, color = pair1)) +
-        geom_vline(xintercept = 0, color = "grey") +
-        geom_hline(yintercept = 0, color = "grey") +
-        geom_point() + theme_classic() + theme(text = element_text(family = "serif")) + 
-        geom_text_repel(aes(label = ids), family = "serif")
+        pcaplot <- ggplot(pca_expr_vectors, aes_string(x = "PC1", y = "PC2", color = pair1)) + geom_vline(xintercept = 0, color = "grey") + geom_hline(yintercept = 0, color = "grey") + geom_point() + theme_classic() + theme(text = element_text(family = "serif")) + geom_text_repel(aes(label = ids), family = "serif")
     }
+    print(pcaplot)
     dev.off()
 }
 
@@ -281,19 +280,19 @@ print("PCA plots created")
 
 
 ## DE by transcript
-results_transcripts <-  stattest(bg_enoki_filt, feature='transcript', covariate=covname,
+results_transcripts <-  stattest(bg_mojo_filt, feature='transcript', covariate=covname,
          adjustvars=adjnames, getFC=TRUE, meas='FPKM')
 
 ## DE by gene
-results_genes <-  stattest(bg_enoki_filt, feature='gene', covariate=covname, adjustvars=adjnames, getFC=TRUE, meas='FPKM')
+results_genes <-  stattest(bg_mojo_filt, feature='gene', covariate=covname, adjustvars=adjnames, getFC=TRUE, meas='FPKM')
 
 ## Sort results from smallest p-value
 results_transcripts <- arrange(results_transcripts, pval)
 results_genes <-  arrange(results_genes, pval)
 
 ## Write results to CSV
-write.csv(results_transcripts, paste("enoki_transcripts_results_by_", covname, ".csv", sep = ""), row.names=FALSE)
-write.csv(results_genes, paste("enoki_genes_results_by_", covname, ".csv", sep = ""), row.names=FALSE)
+write.csv(results_transcripts, paste(cutofftext, "mojo_transcripts_results_by_", covname, ".csv", sep = ""), row.names=FALSE)
+write.csv(results_genes, paste(cutofftext, "mojo_genes_results_by_", covname, ".csv", sep = ""), row.names=FALSE)
 
 ## Filter for genes with q-val <0.05
 transcripts_q_lt_05 <- subset(results_transcripts, results_transcripts$qval <=0.05)
@@ -316,27 +315,30 @@ colnames(transcripts_q_lt_05)[2] <- "t_id"
 transcripts_q_lt_05$t_id <- as.numeric(transcripts_q_lt_05$t_id)
 tmerge <- merge(transcripts_q_lt_05, tfile, all.x = T, all.y = F)
 
+# To match up with transcriptome, you need to use an isoform ID
+# Every gene has at least one isoform, so add ".1" to each gene ID
 genes_q_lt_05$gene_id <- paste(genes_q_lt_05$id, ".1", sep = "")
+results_genes$gene_id <- paste(results_genes$id, ".1", sep = "")
 
 ## Write lists of DEGs with q<0.05 (for gene ID) separated by new line
-write(tmerge$t_name, file = paste("./lists/", "enoki_transcripts_qlt05_results_by_", covname, ".txt", sep = ""), sep="\n")
-write(genes_q_lt_05$gene_id, file = paste("./lists/", "enoki_genes_qlt05_results_by_", covname, ".txt", sep = ""), sep="\n")
+write(tmerge$t_name, file = paste("./lists/", cutofftext, "mojo_transcripts_qlt05_results_by_", covname, ".txt", sep = ""), sep="\n")
+write(genes_q_lt_05$gene_id, file = paste("./lists/", cutofftext, "mojo_genes_qlt05_results_by_", covname, ".txt", sep = ""), sep="\n")
 
 print("DE lists written")
 
 ## Write expression data for DEs
-gene <- gexpr(bg_enoki_filt)
+gene <- gexpr(bg_mojo_filt)
 gene <- data.frame(gene)
 colnames(gene) <- sub("FPKM.", "", colnames(gene))
 gene$id <- rownames(gene)
 genemerge <- merge(genes_q_lt_05, gene, all.x = T, all.y = F)
 rownames(genemerge) <- genemerge$gene_id
 writegenes <- genemerge[,(names(genemerge) %in% c("pval", "qval"))]
-write.csv(writegenes, paste("enoki_genes_qlt05_results_by_", covname, ".csv", sep = ""), row.names=T)
+write.csv(writegenes, paste(cutofftext, "mojo_genes_qlt05_results_by_", covname, ".csv", sep = ""), row.names=T)
 writegenes <- genemerge[,!(names(genemerge) %in% c("id", "feature", "pval", "qval", "gene_id"))]
-write.csv(writegenes, paste("enoki_genes_qlt05_results_by_", covname, "_expr.csv", sep = ""), row.names=T)
+write.csv(writegenes, paste(cutofftext, "mojo_genes_qlt05_results_by_", covname, "_expr.csv", sep = ""), row.names=T)
 
-transcript <- texpr(bg_enoki_filt)
+transcript <- texpr(bg_mojo_filt)
 transcript <- data.frame(transcript)
 colnames(transcript) <- sub("FPKM.", "", colnames(transcript))
 transcript$t_id <- rownames(transcript)
@@ -344,33 +346,33 @@ transmerge <- merge(transcripts_q_lt_05, transcript, all.x = T, all.y = F)
 transmerge2 <- merge(transmerge, tfile, all.x = T, all.y = F)
 rownames(transmerge2) <- transmerge2$t_name
 writetrans <- transmerge2[,(names(transmerge2) %in% c("pval", "qval"))]
-write.csv(writetrans, paste("enoki_transcripts_qlt05_results_by_", covname, ".csv", sep = ""), row.names=T)
+write.csv(writetrans, paste(cutofftext, "mojo_transcripts_qlt05_results_by_", covname, ".csv", sep = ""), row.names=T)
 writetrans <- transmerge2[,!(names(transmerge2) %in% c("t_id", "feature", "pval", "qval", "t_name"))]
-write.csv(writetrans, paste("enoki_transcripts_qlt05_results_by_", covname, "_expr.csv", sep = ""), row.names=T)
+write.csv(writetrans, paste(cutofftext, "mojo_transcripts_qlt05_results_by_", covname, "_expr.csv", sep = ""), row.names=T)
 
 print("DE data written")
 
 ## Write expression data of entire transcriptome for later GO analysis
-gene <- gexpr(bg_enoki)
+gene <- gexpr(bg_mojo)
 gene <- data.frame(gene)
 colnames(gene) <- sub("FPKM.", "", colnames(gene))
 gene$id <- rownames(gene)
 genemerge <- merge(results_genes, gene, all.x = T, all.y = F)
 rownames(genemerge) <- genemerge$gene_id
-writegenes <- genemerge[,!(names(genemerge) %in% c("id", "feature", "pval", "qval", "gene_id"))]
-write.csv(writegenes, paste("enoki_genes_results_by_", covname, "_expr.csv", sep = ""), row.names=T)
-write(rownames(writegenes), file = paste("./lists/", "enoki_genes_results_by_", covname, ".txt", sep = ""), sep="\n")
+writegenes <- genemerge[,!(names(genemerge) %in% c("id", "feature", "pval", "qval"))]
+write.csv(writegenes, paste(cutofftext, "mojo_genes_results_by_", covname, "_expr.csv", sep = ""), row.names=T)
+write(rownames(writegenes), file = paste("./lists/", cutofftext, "mojo_genes_results_by_", covname, ".txt", sep = ""), sep="\n")
 
-transcript <- texpr(bg_enoki)
+transcript <- texpr(bg_mojo)
 transcript <- data.frame(transcript)
 colnames(transcript) <- sub("FPKM.", "", colnames(transcript))
-transcript$t_id <- rownames(transcript)
+transcript$id <- rownames(transcript)
 transmerge <- merge(results_transcripts, transcript, all.x = T, all.y = F)
+names(transmerge)[names(transmerge) == "id"] <- "t_id"
 transmerge2 <- merge(transmerge, tfile, all.x = T, all.y = F)
 rownames(transmerge2) <- transmerge2$t_name
 writetrans <- transmerge2[,!(names(transmerge2) %in% c("t_id", "feature", "pval", "qval", "t_name"))]
-write.csv(writetrans, paste("enoki_transcripts_results_by_", covname, "_expr.csv", sep = ""), row.names=T)
-write(rownames(writetrans), file = paste("./lists/", "enoki_transcripts_results_by_", covname, ".txt", sep = ""), sep="\n")
+write.csv(writetrans, paste(cutofftext, "mojo_transcripts_results_by_", covname, "_expr.csv", sep = ""), row.names=T)
+write(rownames(writetrans), file = paste("./lists/", cutofftext, "mojo_transcripts_results_by_", covname, ".txt", sep = ""), sep="\n")
 
 print("transcriptome expression data written")
-
