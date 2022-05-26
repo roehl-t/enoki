@@ -92,7 +92,7 @@ PANTHERLIBDIR="/home/thomas/bioinformatics/PANTHER17.0_fasta" # download and ext
 
 ## list of data for BLAST
 RRNAFILE="/mnt/raid1/Flammulina-velutipes_development/Data/sequences/rRNA/fungi.rRNA.fna"
-UNIPROTFILE="/mnt/raid1/Flammulina-velutipes_development/Data/sequences/uniprot_agaricales/uniprot-taxonomy 5338.fasta"
+UNIPROTFILE="/mnt/raid1/Flammulina-velutipes_development/Data/sequences/uniprot_agaricales/uniprot-taxonomy_5338.fasta"
 
 
 ## sample subset declarations
@@ -154,9 +154,9 @@ adjvars4=("tissue")
 adjvars5=("tissue")
 ADJVARSETS=("${adjvars1}" "${adjvars2}" "${adjvars3}" "${adjvars4}" "${adjvars5}")
   # for PCA, specify pairs (or singles) of comparisons to make
-pcapair1=("batch" "jar")
-pcapair2=("type" "tissue")
-pcapair3=("position")
+pcapair1="jar batch"
+pcapair2="type tissue"
+pcapair3="position"
 PCAPAIRS="${pcapair1};${pcapair2};${pcapair3}"
 
 
@@ -168,13 +168,27 @@ NCBIAPI=""
 
 # for creating heatmaps and bar plots
   # these lists need to be separated by commas
-  # will partial match to the gene, organism, or sample name
+  # will partial match to the gene, organism, or sample
 genelist1="cytochrome"
 genelist2="hydrophobin,psh"
 genelist3="mitogen,mapk,map"
 genelist4="elongation"
-MAPGENELISTS=("${genelist1}" "${genelist2}" "${genelist3}" "${genelist4}")
+genelist5="heat,hsp"
+MAPGENELISTS=("${genelist1}" "${genelist2}" "${genelist3}" "${genelist4}" "${genelist5}")
 orglist1="Flammulina"
 MAPORGLISTS=("${orglist1}")
-samplelist1=("nor,cul")
+# sample matching is done by pheno data column
+  # use this format: "column_name_1,condition_1,condition_2;column_name_2,condition_3"
+  # conditions for each column should be grouped together and separated by commas
+    # the first word should be the name of the pheno data colum, followed by a comma
+    # next, list all the conditions that should be matched (text only, partial matches allowed)
+  # the conditions for one column should be separated from conditions for the next column by a semicolon
+  # to keep a sample, it must match at least one condition specified for each column
+samplelist1="type,nor,cul"
 MAPSAMPLELISTS=("${samplelist1}")
+# to label samples with their entry from a pheno data column, write the column names separated by commas below
+  # to not use any labels, type "none"
+ADDTONAMES="type,tissue"
+# to make data labels smaller when labeling with pheno data, you can truncate the pheno data entries to the number of letters you define below
+  # to keep the full name, input 0
+SHORTENNAMES=3
