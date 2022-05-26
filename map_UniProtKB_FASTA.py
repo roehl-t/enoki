@@ -32,12 +32,12 @@ for index in range(len(datatable.UniProt_id)):
         else:
             uniprotidlists.append(uniprotidlist)
         uniprotidlist = ''
-    if datatable.UniProt_id[index] != 'NA' and uniprotidlistfull.find(data.UniProt_id[index]) < 0:
+    if datatable.UniProt_id[index] != 'NA' and uniprotidlistfull.find(datatable.UniProt_id[index]) < 0:
         if uniprotidlist == '':
             uniprotidlist = datatable.UniProt_id[index]
         else:
             uniprotidlist = uniprotidlist + " " + datatable.UniProt_id[index]
-        if uniprotidlistfull = '':
+        if uniprotidlistfull == '':
             uniprotidlistfull = datatable.UniProt_id[index]
         else:
             uniprotidlistfull = uniprotidlistfull + " " + datatable.UniProt_id[index]
@@ -73,7 +73,7 @@ for sublist in uniprotidlists:
 if ncbistring[len(ncbistring)-1] == '\n':
     ncbistring = ncbistring[0 : len(ncbistring)-1]
 
-ncbistlist = ncbistring.split('/n')
+ncbistlist = ncbistring.split('\n')
 ncbiresult = pandas.DataFrame([row.split('\t') for row in ncbistlist])
 
 
@@ -140,3 +140,4 @@ for index in range(len(uniprotlist)):
         mapping = prot + ',' + ncbi + '\n'
         output_list_open.write(mapping)
         output_fasta_open.write(fasta)
+        
