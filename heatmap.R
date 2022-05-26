@@ -10,25 +10,28 @@ args <- commandArgs(trailingOnly = T)
 #"~/R/Flammulina-velutipes/ballgown/fv_sampling_data.csv", 
 #"~/R/Flammulina-velutipes/ballgown/bg_output_2022-01-01/heatmaps/cluster4a_heatmap_avg.pdf", 
 #"all",
-#"all",
+#"type,cul,nor;tissue,gills",
 #"all",
 #"F",
+#"type,tissue",
+#"3",
 #"~/R/Flammulina-velutipes/ballgown/bg_output_2022-01-01")
 
 data <- read.csv(args[1]) # FPKM data table
 pheno <- read.csv(args[2]) # the pheno data file for Ballgown
 output <- args[3] # file name to output (PDF)
 genes <- strsplit(args[4], ",", fixed = T)[[1]] # list of genes to subset separated by "," -- input "all" to keep all
-samples <- strsplit(args[5], ",", fixed = T)[[1]] # list of samples or 3-letter sample groups (ex: sti) to subset separated by "," -- input "all" to keep all
-samples <- c(samples, c("gene_name", "organism_name", "UniProt_id", "X", "query_id", "protein_name", "newname"))
+samplesets <- strsplit(args[5], ";", fixed = T)[[1]] # list of conditions based on column of pheno: each column separated by a semicolon, then column title followed by a comma and a comma-separated list of conditions for that column
 organisms <- args[6] # names of organisms to subset separated by "," -- input "all" to keep all
 averageT <- args[7] # containing T or t for TRUE
-if(grepl("t", averageT, ignore.case = T){
+addtonames <- strsplit(args[8], ",", fixed = T)[[1]] # add pheno data from these columns to sample id names
+shortennames <- as.numeric(args[9]) # containing an integer to truncate pheno data strings
+if(grepl("t", averageT, ignore.case = T)){
     average <- T
 } else {
     average <- F
 }
-setwd(args[8]) # where to set the working directory
+setwd(args[10]) # where to set the working directory
 
 # create an output log
 zz <- file("heatmap_output_log.txt", open = "wt")
@@ -36,7 +39,21 @@ sink(zz, type = "message")
 
 # set up sample titles
 pheno$ids <- gsub("-", ".", pheno$ids, fixed = T)
-pheno$titlename <- paste(pheno$ids, "_", substr(pheno$type, 1, 3), "_", substr(pheno$tissue, 1, 3), sep = "")
+pheno$titlename <- pheno$ids
+if(!(args[8] == "none")){
+    for(colname in addtonames){
+        if(shortennames > 0){
+            buffer <- ""
+            for(i in 1:shortennames){
+                buffer <- paste(buffer, ".", sep = "")
+            }
+            pheno[,colname] <- paste(pheno[,colname], buffer, sep = "")
+            pheno$titlename <- paste(pheno$titlename, substr(pheno[,colname], 1, shortennames), sep = "_")
+        } else {
+            pheno$titlename <- paste(pheno$titlename, pheno[,colname], sep = "_")
+        }
+    }
+}
 oldnames <- data.frame(names(data))
 names(oldnames) <- c("ids")
 phenomerge <- merge(pheno, oldnames, all.x = F, all.y = T)
@@ -75,28 +92,45 @@ if(!(args[6] == "all")){
 data <- data[,!(colnames(data) %in% c("gene_name", "organism_name", "UniProt_id", "X", "query_id", "protein_name", "newname"))]
 
 # subset samples
-first <- T
+first1 <- T
 if(!(args[5] == "all")){
-	samples <- gsub("-", ".", samples, fixed = T)
-	for(sample in samples){
-		pheno$keep1 <- grepl(sample, pheno$titlename, ignore.case = T)
-		if(first){
-			pheno$keep2 <- pheno$keep1
-			first <- F
-		} else {
-			pheno$keep2 <- (pheno$keep1 | pheno$keep2)
-		}
-	}
-	pheno <- pheno[(pheno$keep2 == T),]
-	psams <- pheno$titlename
-	data <- data[,names(data) %in% psams]
+    for(sampleset in samplesets){
+        first2 <- T
+        setlist <- strsplit(sampleset, ",", fixed = T)[[1]]
+        if(length(setlist) > 1){
+            colname <- setlist[1]
+            conditions <- setlist[-1]
+            for(condition in conditions){
+                pheno$keep1 <- grepl(condition, pheno[,colname], ignore.case = T)
+                if(first2){
+                    pheno$keep2 <- pheno$keep1
+                    first2 <- F
+                } else {
+                    pheno$keep2 <- (pheno$keep1 | pheno$keep2)
+                }
+            }
+            if(first1){
+                pheno$keep3 <- pheno$keep2
+                first1 <- F
+            } else {
+                pheno$keep3 <- (pheno$keep2 & pheno$keep3)
+            }
+        }
+    }
+    if(!first1){
+        # only do this if you actually added something to keep3
+        pheno <- pheno[(pheno$keep3 == T),]
+        keepsamples <- pheno$titlename
+        keepsamples <- c(keepsamples, c("gene_name", "organism_name", "UniProt_id", "X", "query_id", "protein_name", "newname"))
+        data <- data[,(names(data) %in% keepsamples)]
+    }
 }
 
 # subset genes
 first <- T
 if(!(args[4] == "all")){
 	for(gene in genes){
-		data$keep1 <- grepl(tolower(paste(gene," ",sep = "")), tolower(paste(rownames(data)," ",sep = "")), fixed = T)
+		data$keep1 <- grepl(tolower(gene), tolower(rownames(data)), fixed = T)
 		if(first){
 			data$keep2 <- data$keep1
 			first <- F
@@ -147,27 +181,31 @@ for(col in colnames(data)){
 # convert to matrix
 datam <- as.matrix(data)
 
-# calculate plot size
-############## not working correctly
-minRowHeight <- 80/(2494*0.1)
-minFileHeight <- minRowHeight*(nrow(datam)*0.1)
-minColWidth <- 10/(23*1)
-minFileWidth <- minColWidth*(ncol(datam)*1)
-filesize <- ifelse(minFileHeight > minFileWidth, minFileHeight, minFileWidth)
-rowscale <- filesize/(minRowHeight*nrow(datam)*0.1)
-colscale <- filesize/(minColWidth*ncol(datam)*1)
-marginFactor <- 2*12/(0.4*10)
-maxMargin <- filesize*0.4*marginFactor
-marginAdj <- ifelse(5*rowscale > maxMargin, (5*rowscale-maxMargin)/marginFactor, 0)
-filesize <- filesize+marginAdj
-
-# plot heatmap and save as pdf
-#pdf(file = output, width = 80, height = 80) # all samples
-#heatmap(datam, dendrogram = "both", Rowv = T, Colv = T, symbreaks = F, key = T, symkey = F, density.info = "none", trace = "none", margins = c(60, 8), cexCol = 5, cexRow = 0.1)
-#pdf(file = output, width = 10, height = 10) # 23c x 26r
-#heatmap(datam, dendrogram = "both", Rowv = T, Colv = T, symbreaks = F, key = T, symkey = F, density.info = "none", trace = "none", margins = c(12,30), cexCol = 1)
-#pdf(file = output, width = filesize, height = filesize)
-#heatmap(datam, dendrogram = "both", Rowv = T, Colv = T, symbreaks = F, key = T, symkey = F, scale = "none", density.info = "none", trace = "none", margins = c(12*colscale, 5*rowscale), cexCol = 1*colscale, cexRow = 0.1*rowscale)
-pdf(file = output, width = 11, height = 7)
-heatmap(datam, dendrogram = "both", Rowv = T, Colv = T, symbreaks = F, key = T, symkey = F, scale = "none", density.info = "none", trace = "none", margins = c(10, 7), cexCol = 0.4, cexRow = 0.4)
-dev.off()
+if(nrow(datam) > 0){
+  # calculate plot size
+  ############## not working correctly
+  minRowHeight <- 80/(2494*0.1)
+  minFileHeight <- minRowHeight*(nrow(datam)*0.1)
+  minColWidth <- 10/(23*1)
+  minFileWidth <- minColWidth*(ncol(datam)*1)
+  filesize <- ifelse(minFileHeight > minFileWidth, minFileHeight, minFileWidth)
+  rowscale <- filesize/(minRowHeight*nrow(datam)*0.1)
+  colscale <- filesize/(minColWidth*ncol(datam)*1)
+  marginFactor <- 2*12/(0.4*10)
+  maxMargin <- filesize*0.4*marginFactor
+  marginAdj <- ifelse(5*rowscale > maxMargin, (5*rowscale-maxMargin)/marginFactor, 0)
+  filesize <- filesize+marginAdj
+  
+  # plot heatmap and save as pdf
+  #pdf(file = output, width = 80, height = 80) # all samples
+  #heatmap(datam, dendrogram = "both", Rowv = T, Colv = T, symbreaks = F, key = T, symkey = F, density.info = "none", trace = "none", margins = c(60, 8), cexCol = 5, cexRow = 0.1)
+  #pdf(file = output, width = 10, height = 10) # 23c x 26r
+  #heatmap(datam, dendrogram = "both", Rowv = T, Colv = T, symbreaks = F, key = T, symkey = F, density.info = "none", trace = "none", margins = c(12,30), cexCol = 1)
+  #pdf(file = output, width = filesize, height = filesize)
+  #heatmap(datam, dendrogram = "both", Rowv = T, Colv = T, symbreaks = F, key = T, symkey = F, scale = "none", density.info = "none", trace = "none", margins = c(12*colscale, 5*rowscale), cexCol = 1*colscale, cexRow = 0.1*rowscale)
+  pdf(file = output, width = 11, height = 7)
+  heatmap(datam, dendrogram = "both", Rowv = T, Colv = T, symbreaks = F, key = T, symkey = F, scale = "none", density.info = "none", trace = "none", margins = c(10, 7), cexCol = 0.4, cexRow = 0.4)
+  dev.off()
+} else {
+  print(paste("No data for gene set ", args[4], ", sample set ", args[5], ", and organism set ", args[6], sep = ""))
+}
