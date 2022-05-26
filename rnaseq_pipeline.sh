@@ -1258,9 +1258,10 @@ mojo() {
             # move PCA plots to destdir/products/plots
             # move remainder to destination/calculations/ballgown
     plotsdest=${destination}/products/plots
+    plotsdestpca=${plotsdest}/PCA
     ballgownout=${output}/ballgown
     ballgowndest=${destination}/calculations/ballgown
-    direcs+=("${prodplot}" "${ballgownout}" "${ballgowndest}")
+    direcs+=("${plotsdest}" "${plotsdestpca}" "${ballgownout}" "${ballgowndest}")
         # proteome
             # do in output/proteome
             # move lists to destdir/products/proteome
@@ -1278,10 +1279,11 @@ mojo() {
             # do in output/panther
             # move lists to destdir/products/go
             # move rest to destdir/calculations/panther
+    mojogoin=${mojoinput}/mojogo
     pantherout=${output}/panther
     pantherdest=${destination}/calculations/panther
     godest=${destination}/products/go
-    direcs+=("${pantherout}" "${pantherdest}" "${godest}")
+    direcs+=("${mojogoin}" "${pantherout}" "${pantherdest}" "${godest}")
     # move files from output as described above
     # empty and delete mojoinput
     
@@ -1342,6 +1344,22 @@ mojo() {
         # if the script fails during the docker run, you may want to change the permissions settings (-u option) -- currently, this pipeline uses the active user and group settings from the terminal to specify the docker user and group profiles: -u "$(id -u):$(id -g)"
         
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_busco_complete"
+    else
+    
+        # if busco was skipped and the pipeline did not complete file management, the pipeline will not have initialized a busconame
+        # this section will find the most recent busconame and use that folder
+        skip="N"
+        chklog "${setname}_mojo_files_1_complete"
+        if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
+            skip="Y"
+        fi
+        if [[ ${skip} == "N" ]]; then
+            buscodirs=(${abundances}/busco_output_*)
+            buscocount=${#buscodirs[@]}
+            let "buscocount -= 1"
+            busconame=${buscodirs[${buscocount}]}
+            busconame=${busconame##*/}
+        fi
     fi
     
     
@@ -1360,29 +1378,35 @@ mojo() {
             cp ${mojoinput}/transcriptome.fa ${productdest}/transcriptome.fa
         fi
         # BUSCO results
-        buscoresult=${output}/abundances/${busconame}/short_summary*.txt
+        # for statement used to replace the * wildcard with the resolved filepath -- there is only one file that matches
+        for summary in ${abundances}/${busconame}/short_summary*.txt; do
+            buscoresult=${summary}
+        done
         buscoresultname=${buscoresult##*/}
         if [[ -f ${buscoresult} ]]; then
-            cp ${buscoresult} ${productdest}/BUSCO_${buscoresultname}
+            cp ${buscoresult} "${productdest}/BUSCO_${buscoresultname}"
         fi
         # BUSCO calculations
         for dir in ${abundances}/busco_*; do
-            mv -t ${buscodest} ${dir}
+            cp -r -t ${buscodest} ${dir}
+            emptydir ${dir}
+            removedir ${dir}
         done
         # raw abundances
         if [[ -d ${abundances}/abund ]]; then
-            mv -t ${calcdest}/raw_abundances ${abundances}/abund/*
+            cp -r -t ${calcdest}/raw_abundances ${abundances}/abund/*
+            emptydir ${abundances}/abund
             removedir ${abundances}/abund
         fi
         # rRNA removed abundances
         if [[ -d ${abundances}/rrna_free ]]; then
+            cp -r -t ${calcdest}/rrna_removed ${abundances}/rrna_free/*
             mv -t ${mojoinabund} ${abundances}/rrna_free/*
-            cp -r -t ${calcdest}/rrna_removed ${mojoinabund}/*
             removedir ${abundances}/rrna_free
         fi
         # anything else that might be left in output/abundances
         for file in ${abundances}/*; do
-            mv -t ${calcdest} ${file}
+            cp -r -t ${calcdest} ${file}
         done
         # delete output/abundances
         if [[ -d ${abundances} ]]; then
@@ -1433,7 +1457,7 @@ mojo() {
         if [[ ${skip} == "N" ]]; then
             echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Create protein database (makeblastdb)"
             if [[ ! -d ${databases}/protein ]]; then
-                mkdir ${dataabses}/protein
+                mkdir ${databases}/protein
             fi
             
             $BLASTDIR/makeblastdb -in ${UNIPROTFILE} -out ${databases}/protein/protein -dbtype prot
@@ -1460,7 +1484,7 @@ mojo() {
                 fi
                 if [[ ${skip} == "N" ]]; then
                     # biopython: match MSTRNG numbers from DEGs and .fa sequences
-                    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Match MSTRNGs to genes for DEGs (Biopython)"
+                    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Match MSTRNGs to genes (Biopython)"
                     filename=${ballgownout}/lists/${currentDEGs}.fa
                     if [[ -f ${filename} ]]; then
                         rm ${filename}
@@ -1471,7 +1495,7 @@ mojo() {
                     # fasta transcriptome with MSTRNG/sequence pairs
                     # .txt list of DEGs separated by line
                     python3 ${MATCHGENES} ${filename} ${mojoinput}/transcriptome.fa ${deglist}
-                    
+                    echo "python3 ${MATCHGENES} ${filename} ${mojoinput}/transcriptome.fa ${deglist}"
                     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_${currentDEGs}_matchgenes_complete"
                 fi
 
@@ -1494,7 +1518,16 @@ mojo() {
                 fi
 
                 # extract infromation from UniProt stitle
-                Rscript ${FIXUNIPROT} ${protout}/${setname}_${currentDEGs}_blastx_results.csv ${protout}/${setname}_${currentDEGs}_blastx_results_readable.csv ${LOGLOC}
+                skip="N"
+                chklog "${setname}_${currentDEGs}_UniProt_extract_complete"
+                if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
+                    skip="Y"
+                fi
+                if [[ ${skip} == "N" ]]; then
+                    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Extracting UniProt name data"
+                    Rscript ${FIXUNIPROT} ${protout}/${setname}_${currentDEGs}_blastx_results.csv ${protout}/${setname}_${currentDEGs}_blastx_results_readable.csv ${LOGLOC}
+                    echo "${setname}_${currentDEGs}_UniProt_extract_complete"
+                fi
                 
                 if [[ ! -d ${protout}/named ]]; then
                     mkdir ${protout}/named
@@ -1502,8 +1535,16 @@ mojo() {
 
                 # match protein names to output files
                 for bgresults in ${ballgownout}/${currentDEGs}*csv; do
-                    resultname=${bgresults##*/}
-                    Rscript ${NAMEGENES} ${protout}/${setname}_${currentDEGs}_blastx_results_readable.csv ${bgresults} ${protout}/named/${resultname} ${LOGLOC}
+                    skip="N"
+                    chklog "${setname}_${bgresults}_UniProt_matching_complete"
+                    if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
+                        skip="Y"
+                    fi
+                    if [[ ${skip} == "N" ]]; then
+                        resultname=${bgresults##*/}
+                        Rscript ${NAMEGENES} ${protout}/${setname}_${currentDEGs}_blastx_results_readable.csv ${bgresults} ${protout}/named/${resultname} ${LOGLOC}
+                        echo "${setname}_${bgresults}_UniProt_matching_complete"
+                    fi
                 done
                 
                 echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_${currentDEGs}_gene_naming_complete"
@@ -1550,7 +1591,7 @@ mojo() {
             fi
             if [[ ${skip} == "N" ]]; then
                 # map all genes
-                Rscript ${HEATMAP} ${resultfile} ${PHENODATA} ${plotsout}/${base}_heatmap_all.pdf "all" "all" "all" "F" ${LOGLOC}
+                Rscript ${HEATMAP} ${resultfile} ${PHENODATA} ${plotsout}/${base}_heatmap_all.pdf "all" "all" "all" "F" ${ADDTONAMES} ${SHORTENNAMES} ${LOGLOC}
                 
                 echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_all_heatmap_complete"
             fi
@@ -1566,7 +1607,7 @@ mojo() {
             if [[ ${skip} == "N" ]]; then
                 # map specific genes
                 for ((k=0; k<=${#MAPGENELISTS[@]}-1; k++)); do
-                       Rscript ${HEATMAP} ${resultfile} ${PHENODATA} ${plotsout}/${base}_heatmap_genes_${k}.pdf ${MAPGENELISTS[k]} "all" "all" "F" ${LOGLOC}
+                       Rscript ${HEATMAP} ${resultfile} ${PHENODATA} ${plotsout}/${base}_heatmap_genes_${k}.pdf ${MAPGENELISTS[k]} "all" "all" "F" ${ADDTONAMES} ${SHORTENNAMES} ${LOGLOC}
                 done
                 echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_gene_plots_complete"
             fi
@@ -1579,7 +1620,7 @@ mojo() {
             if [[ ${skip} == "N" ]]; then
                 # map genes from specific organisms
                 for ((k=0; k<=${#MAPORGLISTS[@]}-1; k++)); do
-                       Rscript ${HEATMAP} ${resultfile} ${PHENODATA} ${plotsout}/${base}_heatmap_orgs_${k}.pdf "all" "all" ${MAPORGLISTS[k]} "F" ${LOGLOC}
+                       Rscript ${HEATMAP} ${resultfile} ${PHENODATA} ${plotsout}/${base}_heatmap_orgs_${k}.pdf "all" "all" ${MAPORGLISTS[k]} "F" ${ADDTONAMES} ${SHORTENNAMES} ${LOGLOC}
                 done
                 echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_organism_plots_complete"
             fi
@@ -1592,7 +1633,7 @@ mojo() {
             if [[ ${skip} == "N" ]]; then
                 # map specific samples
                 for ((k=0; k<=${#MAPSAMPLELISTS[@]}-1; k++)); do
-                       Rscript ${HEATMAP} ${resultfile} ${PHENODATA} ${plotsout}/${base}_heatmap_samples_${k}.pdf "all" ${MAPSAMPLELISTS[k]} "all" "F" ${LOGLOC}
+                       Rscript ${HEATMAP} ${resultfile} ${PHENODATA} ${plotsout}/${base}_heatmap_samples_${k}.pdf "all" ${MAPSAMPLELISTS[k]} "all" "F" ${ADDTONAMES} ${SHORTENNAMES} ${LOGLOC}
                 done
                 echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_sample_plots_complete"
             fi
@@ -1616,30 +1657,30 @@ mojo() {
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Performing file management..."
         
         # copy needed files to new input folder
-        mojogoin=${input}/mojogo
-        if [[ ! -d ${mojogoin} ]]; then
-            mkdir ${mojogoin}
-        fi
-        mv ${mojoinput}/transcriptome.fa ${mojogoin}/transcriptome.fa
+        cp ${mojoinput}/transcriptome.fa ${mojogoin}/transcriptome.fa
         cp -t ${mojogoin} ${protout}/named/*.csv
         
         # move output files to destinations
-        mv -t ${plotsdest} ${ballgownout}/PCA/*
-        rm ${ballgownout}/PCA
+        mv -t ${plotsdestpca} ${ballgownout}/PCA/*
+        removedir ${ballgownout}/PCA
         mv -t ${ballgowndest} ${ballgownout}/*
         mv -t ${protproducts} ${protout}/*_readable.csv
         mv -t ${protdest} ${protout}/*
         mv -t ${plotsdest} ${plotsout}/*
         
-        # in case anything was forgotten, move it to the "other" folder
-        mv -t ${otherdest} ${output}/*.*
-        
         # remove mojoinput folder
-        emptydir ${mojoinput}
-        rm ${mojoinput}
+        emptydir ${mojoinput}/abund
+        removedir ${mojoinput}/abund
         
-        # remove output folders
-        emptydir ${output}
+        # remove unneeded output folders
+        emptydir ${output}/abundances
+        emptydir ${output}/ballgown
+        emptydir ${output}/plots
+        emptydir ${output}/proteome
+        removedir ${output}/abundances
+        removedir ${output}/ballgown
+        removedir ${output}/plots
+        removedir ${output}/proteome
         
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> ${setname}_mojo_files_2_complete"
     fi
