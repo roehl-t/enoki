@@ -66,8 +66,17 @@ removedir() {
 mvt() {
     target=$1
     document=$2
-    if [[ -f ${document} || -d ${document} ]]; then
+    if compgen -G "${document}" > /dev/null; then
         mv -t ${target} ${document}
+    fi
+}
+### convenience method for copying files
+    # checks first to see if the file or directory exists
+cprt() {
+    target=$1
+    document=$2
+    if compgen -G "${document}" > /dev/null; then
+        cp -r -t ${target} ${document}
     fi
 }
 
@@ -735,7 +744,7 @@ initqc() {
         fi
         
         # copy all remaining output files to destination
-        cp -r -t ${DESTDIR}/initqc ${output}/*
+        cprt ${DESTDIR}/initqc "${output}/*"
         
         # move needed output files to input
             # paired files
@@ -913,7 +922,7 @@ initproc() {
             mkdir ${DESTDIR}/initproc
         fi
 
-        mvt ${DESTDIR}/initproc ${output}/*
+        mvt ${DESTDIR}/initproc "${output}/*"
         
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> initproc_file_management_complete"
     fi
@@ -1077,7 +1086,7 @@ estabund() {
                 mkdir ${thisout}/rrna_free
             fi
             
-            cp -r -t ${thisout}/rrna_free ${thisout}/abund/*
+            cprt ${thisout}/rrna_free "${thisout}/abund/*"
             
             echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${thisname}_ctabs_copied"
         fi
@@ -1345,22 +1354,6 @@ mojo() {
         # if the script fails during the docker run, you may want to change the permissions settings (-u option) -- currently, this pipeline uses the active user and group settings from the terminal to specify the docker user and group profiles: -u "$(id -u):$(id -g)"
         
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_busco_complete"
-    else
-    
-        # if busco was skipped and the pipeline did not complete file management, the pipeline will not have initialized a busconame
-        # this section will find the most recent busconame and use that folder
-        skip="N"
-        chklog "${setname}_mojo_files_1_complete"
-        if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
-            skip="Y"
-        fi
-        if [[ ${skip} == "N" ]]; then
-            buscodirs=(${abundances}/busco_output_*)
-            buscocount=${#buscodirs[@]}
-            let "buscocount -= 1"
-            busconame=${buscodirs[${buscocount}]}
-            busconame=${busconame##*/}
-        fi
     fi
     
     
@@ -1379,36 +1372,41 @@ mojo() {
             cp ${mojoinput}/transcriptome.fa ${productdest}/transcriptome.fa
         fi
         # BUSCO results
-        # for statement used to replace the * wildcard with the resolved filepath -- there is only one file that matches
-        for summary in ${abundances}/${busconame}/short_summary*.txt; do
-            buscoresult=${summary}
+        # in case file management was interrupted, don't use ${busconame} -- use /busco_output_*/ instead
+        # if multiple busco directories were created, they should be labeled with the date and time
+        # therefore, this process should loop through the directories from oldest to newest and overwrite the older files
+        for buscodir in ${abundances}/busco_output_*; do
+            # for statement used to replace the * wildcard with the resolved filepath -- there is only one file that matches
+            for summary in ${buscodir}/short_summary*.txt; do
+                buscoresult=${summary}
+            done
+            buscoresultname=${buscoresult##*/}
+            if [[ -f ${buscoresult} ]]; then
+                cp ${buscoresult} "${productdest}/BUSCO_${buscoresultname}"
+            fi
         done
-        buscoresultname=${buscoresult##*/}
-        if [[ -f ${buscoresult} ]]; then
-            cp ${buscoresult} "${productdest}/BUSCO_${buscoresultname}"
-        fi
         # BUSCO calculations
         for dir in ${abundances}/busco_*; do
-            cp -r -t ${buscodest} ${dir}
-            emptydir ${dir}
-            removedir ${dir}
+            if [[ -d ${dir} ]]; then
+                cprt ${buscodest} ${dir}
+                emptydir ${dir}
+                removedir ${dir}
+            fi
         done
         # raw abundances
         if [[ -d ${abundances}/abund ]]; then
-            cp -r -t ${calcdest}/raw_abundances ${abundances}/abund/*
+            cprt ${calcdest}/raw_abundances "${abundances}/abund/*"
             emptydir ${abundances}/abund
             removedir ${abundances}/abund
         fi
         # rRNA removed abundances
         if [[ -d ${abundances}/rrna_free ]]; then
-            cp -r -t ${calcdest}/rrna_removed ${abundances}/rrna_free/*
-            mvt ${mojoinabund} ${abundances}/rrna_free/*
+            cprt ${calcdest}/rrna_removed "${abundances}/rrna_free/*"
+            mvt ${mojoinabund} "${abundances}/rrna_free/*"
             removedir ${abundances}/rrna_free
         fi
         # anything else that might be left in output/abundances
-        for file in ${abundances}/*; do
-            cp -r -t ${calcdest} ${file}
-        done
+        cprt ${calcdest} "${abundances}/*"
         # delete output/abundances
         if [[ -d ${abundances} ]]; then
             emptydir ${abundances}
@@ -1643,15 +1641,15 @@ mojo() {
         
         # copy needed files to new input folder
         cp ${mojoinput}/transcriptome.fa ${mojogoin}/transcriptome.fa
-        cp -t ${mojogoin} ${protout}/named/*.csv
+        cprt ${mojogoin} "${protout}/named/*.csv"
         
         # move output files to destinations
-        mvt ${plotsdestpca} ${ballgownout}/PCA/*
+        mvt ${plotsdestpca} "${ballgownout}/PCA/*"
         removedir ${ballgownout}/PCA
-        mvt ${ballgowndest} ${ballgownout}/*
-        mvt ${protproducts} ${protout}/*_readable.csv
-        mvt ${protdest} ${protout}/*
-        mvt ${plotsdest} ${plotsout}/*
+        mvt ${ballgowndest} "${ballgownout}/*"
+        mvt ${protproducts} "${protout}/*_readable.csv"
+        mvt ${protdest} "${protout}/*"
+        mvt ${plotsdest} "${plotsout}/*"
         
         # remove mojoinput abundance folder
         if [[ -d ${mojoinput}/abund ]]; then
@@ -1754,10 +1752,10 @@ mojo() {
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Performing file management..."
         
         # move PANTHER files
-        mvt ${godest} ${pantherout}/final/*
+        mvt ${godest} "${pantherout}/final/*"
         emptydir ${pantherout}/final
         removedir ${pantherout}/final
-        mvt ${pantherdest} ${pantherout}/*
+        mvt ${pantherdest} "${pantherout}/*"
         emptydir ${pantherout}
         removedir ${pantherout}
         
@@ -1767,6 +1765,10 @@ mojo() {
         
         # empty output
         emptydir ${output}
+        
+        # remove input for this set
+        emptydir ${mojoinput}
+        removedir ${mojoinput}
         
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_mojo_files_3_complete"
     fi
@@ -1964,7 +1966,7 @@ done
 # end-of-pipeline file management
 
 # move forgotten files to destination/other
-mvt ${otherdest} ${output}/*
+mvt ${otherdest} "${output}/*"
 
 # remove local input, output, and database folders
 rm ${output}
