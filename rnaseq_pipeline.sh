@@ -1695,18 +1695,9 @@ mojo() {
     
     # PantherScore won't work unless the working directory is the directory that contains PantherScore and the program's lib folder
     cd ${PANTHERSCORE%/*}
-    
-    #######################################################
-    # shouldn't need to do because the full transcriptome is included in deglists
-    #echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Converting UniProtKB IDs to FASTA..."
-    ## for each named protein, get the NCBI Protein database sequence and add it to a FASTA file
-    #python3 ${UNIPROTFASTA} ${pantherout}/tome_ncbi_list.csv ${pantherout}/tome_fasta.fa ${NCBIAPI} ${mojogoin}/${setname}_tome_blastx_results_readable.csv
-    #
-    #echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Running PantherScore..."
-    ## score FASTA file against PANTHER HMMs to map to PANTHER IDs
-    #perl ${PANTHERSCORE} -l ${PANTHERLIBDIR} -D B -i ${pantherout}/tome_fasta.fa -o ${pantherout}/tome_panther_mapping.txt -n -s
 
-    for deglist in ${mojogoin}/*_expr.csv; do
+    # run this section only on gene data -- GO is not designed for isoform analysis
+    for deglist in ${mojogoin}/*_genes_*_expr.csv; do
         base=${deglist##*/}
         basename=${base%.csv}
         echo "Current list: ${basename}"
@@ -1770,9 +1761,11 @@ mojo() {
         
         # move PANTHER files
         mv -t ${godest} ${pantherout}/final/*
-        rm ${pantherout}/final
-        mv -t ${pantherdest} ${pantherout}
-        rm ${pantherout}
+        emptydir ${pantherout}/final
+        removedir ${pantherout}/final
+        mv -t ${pantherdest} ${pantherout}/*
+        emptydir ${pantherout}
+        removedir ${pantherout}
         
         # remove mojogoin
         emptydir ${mojogoin}
