@@ -1281,9 +1281,10 @@ mojo() {
             # move rest to destdir/calculations/panther
     mojogoin=${mojoinput}/mojogo
     pantherout=${output}/panther
+    pantheroutfinal=${pantherout}/final
     pantherdest=${destination}/calculations/panther
     godest=${destination}/products/go
-    direcs+=("${mojogoin}" "${pantherout}" "${pantherdest}" "${godest}")
+    direcs+=("${mojogoin}" "${pantherout}" "${pantheroutfinal}" "${pantherdest}" "${godest}")
     # move files from output as described above
     # empty and delete mojoinput
     
@@ -1668,19 +1669,20 @@ mojo() {
         mv -t ${protdest} ${protout}/*
         mv -t ${plotsdest} ${plotsout}/*
         
-        # remove mojoinput folder
-        emptydir ${mojoinput}/abund
-        removedir ${mojoinput}/abund
+        # remove mojoinput abundance folder
+        if [[ -d ${mojoinput}/abund ]]; then
+            emptydir ${mojoinput}/abund
+            removedir ${mojoinput}/abund
+        fi
         
         # remove unneeded output folders
-        emptydir ${output}/abundances
-        emptydir ${output}/ballgown
-        emptydir ${output}/plots
-        emptydir ${output}/proteome
-        removedir ${output}/abundances
-        removedir ${output}/ballgown
-        removedir ${output}/plots
-        removedir ${output}/proteome
+        rmfldrs=("${output}/abundances" "${output}/ballgown" "${output}/plots" "${output}/proteome")
+        for folder in rmfldrs; do
+            if [[ -d ${folder} ]]; then
+                emptydir ${folder}
+                removedir ${folder}
+            fi
+        done
         
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> ${setname}_mojo_files_2_complete"
     fi
@@ -1693,7 +1695,7 @@ mojo() {
     
     # PantherScore won't work unless the working directory is the directory that contains PantherScore and the program's lib folder
     cd ${PANTHERSCORE%/*}
-
+    
     #######################################################
     # shouldn't need to do because the full transcriptome is included in deglists
     #echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Converting UniProtKB IDs to FASTA..."
@@ -1709,21 +1711,49 @@ mojo() {
         basename=${base%.csv}
         echo "Current list: ${basename}"
 
-        # for each named protein, get the NCBI Protein database sequence and add it to a FASTA file
-        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Converting UniProtKB IDs to FASTA..."
-        python3 ${UNIPROTFASTA} ${pantherout}/${basename}_ncbi_list.csv ${pantherout}/${basename}_fasta.fa "" ${deglist}
-        
-        # score FASTA file against PANTHER HMMs to map to PANTHER IDs
-        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Running PantherScore..."
-        perl ${PANTHERSCORE} -l ${PANTHERLIBDIR} -D B -i ${pantherout}/${basename}_fasta.fa -o ${pantherout}/${basename}_panther_mapping.csv -n -s
-            # output is tab-delimited: sequence ID, panther acc, panther family/subfamily, HMM e-value, HMM bitscore, alignment range
-        
-        # map PANTHER IDs to fpkm tables
-        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Matching PANTHER IDs to FPKM tables..."
-        if [[ ! -d ${pantherout}/final/${basename} ]]; then
-            mkdir ${pantherout}/final/${basename}
+        skip="N"
+        chklog "${setname}_${deglist}_upkb_to_fasta_complete"
+        if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
+            skip="Y"
         fi
-        Rscript ${PANTHERFPKM} ${deglist} ${pantherout}/${basename}_panther_mapping.csv ${pantherout}/${basename}_ncbi_list.csv ${PHENODATA} "ROEHL,myc,sti,pil,gil,you,pri,cul,nor" ${basename}_panther_mapping ${pantherout}/final/${basename}
+        if [[ ${skip} == "N" ]]; then
+            # for each named protein, get the NCBI Protein database sequence and add it to a FASTA file
+            echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Converting UniProtKB IDs to FASTA..."
+            python3 ${UNIPROTFASTA} ${pantherout}/${basename}_ncbi_list.csv ${pantherout}/${basename}_fasta.fa "" ${deglist}
+            echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_${deglist}_upkb_to_fasta_complete"
+        fi
+        
+        skip="N"
+        chklog "${setname}_${deglist}_pantherscore_complete"
+        if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
+            skip="Y"
+        fi
+        if [[ ${skip} == "N" ]]; then
+        # score FASTA file against PANTHER HMMs to map to PANTHER IDs
+            echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Running PantherScore..."
+            perl ${PANTHERSCORE} -l ${PANTHERLIBDIR} -D B -i ${pantherout}/${basename}_fasta.fa -o ${pantherout}/${basename}_panther_mapping.csv -n -s
+            # output is tab-delimited: sequence ID, panther acc, panther family/subfamily, HMM e-value, HMM bitscore, alignment range
+            echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_${deglist}_pantherscore_complete"
+        fi
+        
+        skip="N"
+        chklog "${setname}_${deglist}_panther_fpkm_complete"
+        if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
+            skip="Y"
+        fi
+        if [[ ${skip} == "N" ]]; then
+        # map PANTHER IDs to fpkm tables
+            echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Matching PANTHER IDs to FPKM tables..."
+            if [[ ! -d ${pantherout}/final/${basename} ]]; then
+                mkdir ${pantherout}/final/${basename}
+            fi
+            record="none"
+            if [[ ${resume} == "Y" ]]; then
+                record=${LOGFILE}
+            fi
+            Rscript ${PANTHERFPKM} ${deglist} ${pantherout}/${basename}_panther_mapping.csv ${pantherout}/${basename}_ncbi_list.csv ${PHENODATA} ${PANTHERSUBSETS} ${basename}_panther_mapping ${pantherout}/final/${basename} ${LOGLOC} ${record}
+            echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_${deglist}_panther_fpkm_complete"
+        fi
     done
     
     cd ${WRKDIR}
