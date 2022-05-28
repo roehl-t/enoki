@@ -60,6 +60,16 @@ removedir() {
         exit 1
     fi
 }
+### convenience method for moving files
+    # if script is interrupted during file management, mv may encounter an empty folder and return the error "cannot stat '____': No such file or directory
+    # to avoid, first check that the file exists
+mvt() {
+    target=$1
+    document=$2
+    if [[ -f ${document} || -d ${document} ]]; then
+        mv -t ${target} ${document}
+    fi
+}
 
 
 
@@ -452,7 +462,7 @@ initqc() {
     fi
     if [[ ${skip} == "N" && ${needsconcat} == "T" ]]; then
         echo "File management..."
-        mv -t ${DESTDIR}/initqc ${output}/concatenate
+        mvt ${DESTDIR}/initqc ${output}/concatenate
         echo "completed_concatenation_mv_to_dest"
     fi
     
@@ -489,8 +499,8 @@ initqc() {
                 ${FQTRIM} -l 30 -p ${NUMCPUS} -D -o fqtrimmed.fq --outdir ${output}/fqtrim1 -r ${LOGLOC}/fqtrimlog1p.txt ${readpair}
                 
                 # file management: move trimmomatic paired files (no longer needed) to destination
-                mv -t ${DESTDIR}/initqc/trimmomatic ${file}
-                mv -t ${DESTDIR}/initqc/trimmomatic ${file/_1P/_2P}
+                mvt ${DESTDIR}/initqc/trimmomatic ${file}
+                mvt ${DESTDIR}/initqc/trimmomatic ${file/_1P/_2P}
                 
                 echo "${readpair}_complete"
             fi
@@ -526,7 +536,7 @@ initqc() {
                 fi
                 
                 # file management: move trimmomatic unpaired files (no longer needed) to destination
-                mv -t ${DESTDIR}/initqc/trimmomatic ${file}
+                mvt ${DESTDIR}/initqc/trimmomatic ${file}
 
                 echo "${output}/fqtrim1/${file##*/}_complete"
             fi
@@ -543,9 +553,7 @@ initqc() {
     fi
     if [[ ${skip} == "N" ]]; then
         for file in ${output}/trimmomatic/*; do
-            if [[ -f ${file} ]]; then
-                mv -t ${DESTDIR}/initqc/trimmomatic ${file}
-            fi
+            mvt ${DESTDIR}/initqc/trimmomatic ${file}
         done
         removedir ${output}/trimmomatic
         echo "trimmomatic_folder_moved"
@@ -615,7 +623,7 @@ initqc() {
                 ${FQTRIM} -l 30 -p ${NUMCPUS} -D -o 2.fq --outdir ${output}/fqtrim2 -r ${LOGLOC}/fqtrimlog2p.txt ${seqfile}
                 
                 # file management: paired fqtrim1 reads are no longer needed -- move to destination
-                mv -t ${DESTDIR}/initqc/fqtrim1 ${seqfile}
+                mvt ${DESTDIR}/initqc/fqtrim1 ${seqfile}
                 
                 echo "${output}/fqtrim2/${seqfile##*/}_trimmed2"
                 
@@ -693,8 +701,8 @@ initqc() {
                 # output files are ./*_out_pairs_fwd.fastq ./*_out_pairs_rev.fastq and ./*_out_unpaired.fastq
                 
                 # file management: fqtrim2 files are no longer needed -- move them to the destination
-                mv -t ${DESTDIR}/initqc/fqtrim2 ${file}
-                mv -t ${DESTDIR}/initqc/fqtrim2 ${reverse}
+                mvt ${DESTDIR}/initqc/fqtrim2 ${file}
+                mvt ${DESTDIR}/initqc/fqtrim2 ${reverse}
                 
                 echo "${base}__interleaved"
                 
@@ -720,9 +728,7 @@ initqc() {
 
         # remove fqtrim2 folder
         for file in ${output}/fqtrim2/*; do
-            if [[ -f ${file} ]]; then
-                mv -t ${DESTDIR}/initqc/fqtrim2 ${file}
-            fi
+            mvt ${DESTDIR}/initqc/fqtrim2 ${file}
         done
         if [[ -d ${output}/fqtrim2 ]]; then
             removedir ${output}/fqtrim2
@@ -734,22 +740,16 @@ initqc() {
         # move needed output files to input
             # paired files
         for file in ${output}/interleave/*_out_pairs_*.fastq; do
-            if [[ -f ${file} ]]; then
-                mv -t ${input} ${file}
-            fi
+            mvt ${input} ${file}
         done
         if [[ ${USEUNPAIRED} == "Y" ]]; then
             # unpaired fqtrim1 files
             for file in ${output}/fqtrim1/*U.fqtrimmed.fq; do
-                if [[ -f ${file} ]]; then
-                    mv -t ${input} ${file}
-                fi
+                mvt ${input} ${file}
             done
             # unpaired interleaved files
             for file in ${output}/interleave/*_out_unpaired.fastq; do
-                if [[ -f ${file} ]]; then
-                    mv -t ${input} ${file}
-                fi
+                mvt ${input} ${file}
             done
         fi
         
@@ -913,7 +913,7 @@ initproc() {
             mkdir ${DESTDIR}/initproc
         fi
 
-        mv -t ${DESTDIR}/initproc ${output}/*
+        mvt ${DESTDIR}/initproc ${output}/*
         
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> initproc_file_management_complete"
     fi
@@ -1402,7 +1402,7 @@ mojo() {
         # rRNA removed abundances
         if [[ -d ${abundances}/rrna_free ]]; then
             cp -r -t ${calcdest}/rrna_removed ${abundances}/rrna_free/*
-            mv -t ${mojoinabund} ${abundances}/rrna_free/*
+            mvt ${mojoinabund} ${abundances}/rrna_free/*
             removedir ${abundances}/rrna_free
         fi
         # anything else that might be left in output/abundances
@@ -1555,22 +1555,6 @@ mojo() {
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_gene_naming_complete"
     fi
 
-
-######################################################################
-# should be done automatically by adding complete list of transcripts to ballgown/output/lists -- see rnaseq_ballgown
-#    # BLAST transcriptome for PANTHER reference
-#    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Query BLAST database with transcriptome (BLASTX)"
-#    
-#    $BLASTXAPP -query ${BALLGOWNLOC}/fv_transcriptome.fa \
-#        -db ${UNIPROTDIR}/uniprot_agaricales \
-#        -out ${UNIPROTDIR}/${setname}_tome_blastx_results.csv \
-#        -evalue 1e-3 -num_threads ${NUMCPUS} \
-#        -num_alignments 1 -outfmt "6 qseqid stitle sacc evalue pident bitscore length qstart qend sstart send"
-#    
-#    # extract infromation from UniProt stitle
-#    Rscript ${FIXUNIPROT} ${UNIPROTDIR}/${setname}_tome_blastx_results.csv ${UNIPROTDIR}/${setname}_tome_blastx_results_readable.csv ${UNIPROTDIR}
-
-
      ## generate heat maps or bar plots
     skip="N"
     chklog "${setname}_plots_complete"
@@ -1662,12 +1646,12 @@ mojo() {
         cp -t ${mojogoin} ${protout}/named/*.csv
         
         # move output files to destinations
-        mv -t ${plotsdestpca} ${ballgownout}/PCA/*
+        mvt ${plotsdestpca} ${ballgownout}/PCA/*
         removedir ${ballgownout}/PCA
-        mv -t ${ballgowndest} ${ballgownout}/*
-        mv -t ${protproducts} ${protout}/*_readable.csv
-        mv -t ${protdest} ${protout}/*
-        mv -t ${plotsdest} ${plotsout}/*
+        mvt ${ballgowndest} ${ballgownout}/*
+        mvt ${protproducts} ${protout}/*_readable.csv
+        mvt ${protdest} ${protout}/*
+        mvt ${plotsdest} ${plotsout}/*
         
         # remove mojoinput abundance folder
         if [[ -d ${mojoinput}/abund ]]; then
@@ -1689,66 +1673,76 @@ mojo() {
     
     
     ## GO analysis
-    echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Generating tables for GO analysis..."
-
-    # for each DEG list and reference list...
+    skip="N"
+    chklog "mojo_${setname}_go_complete"
+    if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
+        skip="Y"
+    fi
+    if [[ ${skip} == "N" ]]; then
     
-    # PantherScore won't work unless the working directory is the directory that contains PantherScore and the program's lib folder
-    cd ${PANTHERSCORE%/*}
-
-    # run this section only on gene data -- GO is not designed for isoform analysis
-    for deglist in ${mojogoin}/*_genes_*_expr.csv; do
-        base=${deglist##*/}
-        basename=${base%.csv}
-        echo "Current list: ${basename}"
-
-        skip="N"
-        chklog "${setname}_${deglist}_upkb_to_fasta_complete"
-        if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
-            skip="Y"
-        fi
-        if [[ ${skip} == "N" ]]; then
-            # for each named protein, get the NCBI Protein database sequence and add it to a FASTA file
-            echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Converting UniProtKB IDs to FASTA..."
-            python3 ${UNIPROTFASTA} ${pantherout}/${basename}_ncbi_list.csv ${pantherout}/${basename}_fasta.fa "" ${deglist}
-            echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_${deglist}_upkb_to_fasta_complete"
-        fi
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Generating tables for GO analysis..."
+    
+        # for each DEG list and reference list...
         
-        skip="N"
-        chklog "${setname}_${deglist}_pantherscore_complete"
-        if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
-            skip="Y"
-        fi
-        if [[ ${skip} == "N" ]]; then
-        # score FASTA file against PANTHER HMMs to map to PANTHER IDs
-            echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Running PantherScore..."
-            perl ${PANTHERSCORE} -l ${PANTHERLIBDIR} -D B -i ${pantherout}/${basename}_fasta.fa -o ${pantherout}/${basename}_panther_mapping.csv -n -s
-            # output is tab-delimited: sequence ID, panther acc, panther family/subfamily, HMM e-value, HMM bitscore, alignment range
-            echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_${deglist}_pantherscore_complete"
-        fi
+        # PantherScore won't work unless the working directory is the directory that contains PantherScore and the program's lib folder
+        cd ${PANTHERSCORE%/*}
+    
+        # run this section only on gene data -- GO is not designed for isoform analysis
+        for deglist in ${mojogoin}/*_genes_*_expr.csv; do
+            base=${deglist##*/}
+            basename=${base%.csv}
+            echo "Current list: ${basename}"
+    
+            skip="N"
+            chklog "${setname}_${deglist}_upkb_to_fasta_complete"
+            if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
+                skip="Y"
+            fi
+            if [[ ${skip} == "N" ]]; then
+                # for each named protein, get the NCBI Protein database sequence and add it to a FASTA file
+                echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Converting UniProtKB IDs to FASTA..."
+                python3 ${UNIPROTFASTA} ${pantherout}/${basename}_ncbi_list.csv ${pantherout}/${basename}_fasta.fa "" ${deglist}
+                echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_${deglist}_upkb_to_fasta_complete"
+            fi
+            
+            skip="N"
+            chklog "${setname}_${deglist}_pantherscore_complete"
+            if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
+                skip="Y"
+            fi
+            if [[ ${skip} == "N" ]]; then
+                # score FASTA file against PANTHER HMMs to map to PANTHER IDs
+                echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Running PantherScore..."
+                perl ${PANTHERSCORE} -l ${PANTHERLIBDIR} -D B -i ${pantherout}/${basename}_fasta.fa -o ${pantherout}/${basename}_panther_mapping.csv -n -s
+                # output is tab-delimited: sequence ID, panther acc, panther family/subfamily, HMM e-value, HMM bitscore, alignment range
+                echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_${deglist}_pantherscore_complete"
+            fi
+            
+            skip="N"
+            chklog "${setname}_${deglist}_panther_fpkm_complete"
+            if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
+                skip="Y"
+            fi
+            if [[ ${skip} == "N" ]]; then
+            # map PANTHER IDs to fpkm tables
+                echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Matching PANTHER IDs to FPKM tables..."
+                if [[ ! -d ${pantherout}/final/${basename} ]]; then
+                    mkdir ${pantherout}/final/${basename}
+                fi
+                record="none"
+                if [[ ${resume} == "Y" ]]; then
+                    record=${LOGFILE}
+                fi
+                Rscript ${PANTHERFPKM} ${deglist} ${pantherout}/${basename}_panther_mapping.csv ${pantherout}/${basename}_ncbi_list.csv ${PHENODATA} ${PANTHERSUBSETS} ${basename}_panther_mapping ${pantherout}/final/${basename} ${LOGLOC} ${record}
+                echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_${deglist}_panther_fpkm_complete"
+            fi
+        done
         
-        skip="N"
-        chklog "${setname}_${deglist}_panther_fpkm_complete"
-        if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
-            skip="Y"
-        fi
-        if [[ ${skip} == "N" ]]; then
-        # map PANTHER IDs to fpkm tables
-            echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Matching PANTHER IDs to FPKM tables..."
-            if [[ ! -d ${pantherout}/final/${basename} ]]; then
-                mkdir ${pantherout}/final/${basename}
-            fi
-            record="none"
-            if [[ ${resume} == "Y" ]]; then
-                record=${LOGFILE}
-            fi
-            Rscript ${PANTHERFPKM} ${deglist} ${pantherout}/${basename}_panther_mapping.csv ${pantherout}/${basename}_ncbi_list.csv ${PHENODATA} ${PANTHERSUBSETS} ${basename}_panther_mapping ${pantherout}/final/${basename} ${LOGLOC} ${record}
-            echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_${deglist}_panther_fpkm_complete"
-        fi
-    done
-    
-    cd ${WRKDIR}
-    
+        cd ${WRKDIR}
+        
+        echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> mojo_${setname}_go_complete"
+        
+    fi
     
     # end-of-block file management
     skip="N"
@@ -1760,16 +1754,19 @@ mojo() {
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "##> Performing file management..."
         
         # move PANTHER files
-        mv -t ${godest} ${pantherout}/final/*
+        mvt ${godest} ${pantherout}/final/*
         emptydir ${pantherout}/final
         removedir ${pantherout}/final
-        mv -t ${pantherdest} ${pantherout}/*
+        mvt ${pantherdest} ${pantherout}/*
         emptydir ${pantherout}
         removedir ${pantherout}
         
         # remove mojogoin
         emptydir ${mojogoin}
-        rm ${mojogoin}
+        removedir ${mojogoin}
+        
+        # empty output
+        emptydir ${output}
         
         echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_mojo_files_3_complete"
     fi
@@ -1967,7 +1964,7 @@ done
 # end-of-pipeline file management
 
 # move forgotten files to destination/other
-mv -t ${otherdest} ${output}/*
+mvt ${otherdest} ${output}/*
 
 # remove local input, output, and database folders
 rm ${output}
