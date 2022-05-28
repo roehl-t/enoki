@@ -169,7 +169,6 @@ for(groupset in groupsets){
         
             # remove duplicate PANTHER IDs
             for(i in 1:nrow(condensed)){
-                i <- 1
                 condensed$match <- grepl(condensed$panther_acc[i], condensed$panther_acc, fixed = T)
                 matches <- condensed[condensed$match == T,]
                 if(nrow(matches) > 1){
