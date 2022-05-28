@@ -151,9 +151,10 @@ for(groupset in groupsets){
         newdata <- data.frame(subset$query_id, subset$panther_acc, subset$mean)
         names(newdata) <- c("query_id", "panther_acc", "mean")
     
-        # remove duplicate MSTRGs
         condensed <- newdata[1,]
         if(nrow(newdata) > 1){
+        
+            # remove duplicate MSTRGs
             for(i in 2:nrow(newdata)){
                 found = F
                 for(j in 1:nrow(condensed)){
@@ -165,7 +166,31 @@ for(groupset in groupsets){
                     condensed <- rbind(condensed, newdata[i,])
                 }
             }
+        
+            # remove duplicate PANTHER IDs
+            for(i in 1:nrow(condensed)){
+                i <- 1
+                condensed$match <- grepl(condensed$panther_acc[i], condensed$panther_acc, fixed = T)
+                matches <- condensed[condensed$match == T,]
+                if(nrow(matches) > 1){
+                    matchtitle <- matches$query_id[1]
+                    for(j in 2:nrow(matches)){
+                        matchtitle <- paste(matchtitle, matches$query_id[j], sep = ",")
+                    }
+                    # unique ID cannot be longer than 32 charachters
+                    if(nchar(matchtitle) > 32){
+                        matchtitle <- paste(matches$query_id[1], "+", (nrow(matches)-1), sep = "")
+                    }
+                    newmean <- sum(matches$mean)/nrow(matches)
+                    newrow <- data.frame(c(matchtitle), c(matches$panther_acc[1]), c(newmean), c(F))
+                    names(newrow) <- c("query_id", "panther_acc", "mean", "match")
+                    condensed <- condensed[condensed$match == F,]
+                    condensed <- rbind(condensed, newrow)
+                }
+            }
+            condensed <- condensed[,!(names(condensed) %in% c("match"))]
         }
+        
         
         # write csv -- must be tab separated for PANTHER upload
             # must be tab-separated
