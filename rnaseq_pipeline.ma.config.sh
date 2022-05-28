@@ -54,7 +54,7 @@ GFFREAD=/bin/gffread
 BLASTXAPP=/home/thomas/bioinformatics/ncbi-blast-2.13.0+/bin/blastx
 BLASTNAPP=/home/thomas/bioinformatics/ncbi-blast-2.13.0+/bin/blastn
 DOCKER=/bin/docker
-PANTHERSCORE=/home/thomas/bioinformatics/pantherScore2.2/pantherScore2.2.pl
+PANTHERSCORE=/home/thomas/bioinformatics/pantherScore2.2/pantherScore2.2.pl # download the pantherScore#.# directory from ftp://ftp.pantherdb.org//hmm_scoring/current_release/
 
 ## paths for programs included in enoki
 scripts=/mnt/raid1/Flammulina-velutipes_development/scripts-test
@@ -87,7 +87,7 @@ GENOME="/mnt/raid1/Flammulina-velutipes_development/Data/sequences/fv_genome_fuj
     # must include a column labeled "ids" that matches the sample IDs used in the filenames
 PHENODATA="/mnt/raid1/Flammulina-velutipes_development/Data/mojo-test/sample-data-for-pipeline.csv"
 BLASTDIR="/home/thomas/bioinformatics/ncbi-blast-2.13.0+/bin"
-PANTHERLIBDIR="/home/thomas/bioinformatics/PANTHER17.0_fasta" # download and extract any one of the .tgz files (all contain same data) from http://data.pantherdb.org/ftp/panther_library/current_release/
+PANTHERLIBDIR="/home/thomas/bioinformatics/PANTHER17.0" # download and extract the _hmmscoring.tgz file from ftp://ftp.pantherdb.org//hmm_scoring/current_release/
 
 
 ## list of data for BLAST
@@ -192,3 +192,13 @@ ADDTONAMES="type,tissue"
 # to make data labels smaller when labeling with pheno data, you can truncate the pheno data entries to the number of letters you define below
   # to keep the full name, input 0
 SHORTENNAMES=3
+
+# subset lists to write while matching PANTHER ids to FPKM values
+  # to match samples, use this format: "column_name_1,condition_1,condition_2;column_name_2,condition_3|column_name_1,condition_4"
+  # conditions for each column should be grouped together and separated by commas
+    # the first word should be the name of the pheno data colum, followed by a comma
+    # next, list all the conditions that should be matched (text only, partial matches allowed)
+  # the conditions for one column should be separated from conditions for the next column by a semicolon
+  # to keep a sample, it must match at least one condition specified for each column
+  # to create multiple subsets, separate each subset with a pipe (|)
+PANTHERSUBSETS="ids,ROEHL|tissue,myc|tissue,sti|tissue,pil|tissue,gil|type,you|type,pri|type,cul|type,nor"
