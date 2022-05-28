@@ -11,12 +11,11 @@ data <- read.csv(args[1], header = T) # .csv file with fpkm data and gene names
 panther <- read.csv(args[2], sep = "\t", header = F) # .csv file of PANTHER results
 up_ncbi <- read.csv(args[3], sep = ",", header = T) # .csv file of UniProtKB to NCBI mapping
 pheno <- read.csv(args[4]) # .csv of the pheno data, for column filtering
-groups <- args[5] # comma-separated list of subsets to write based on names of phenotypes or files (uses partial matches)
-groups <- gsub("-", ".", groups, fixed = T)
-groups <- gsub(" ", ".", groups, fixed = T)
-grouplist <- strsplit(groups, ",")[[1]]
+groupsets <- strsplit(args[5], "|", fixed = T)[[1]] # list of conditions based on column of pheno: each column separated by a semicolon, then column title followed by a comma and a comma-separated list of conditions for that column -- make output files based on multiple groups of column conditions by separating each output set with a pipe (|)
 outfiles <- args[6] # base name for the new files
 workdir <- args[7] # where to set the working directory
+logdir <- args[8] # where to write the log
+recordfile <- args[9] # print record of a previous run, or "none" -- used to check for previously completed files
 
 # list of analyses to perform:
 #grouplist <- c("ROEHL", "myc", "sti", "pil", "gil", "you", "pri", "cul", "nor")
@@ -24,8 +23,17 @@ workdir <- args[7] # where to set the working directory
 setwd(workdir)
 
 # create an output log
-zz <- file("map_panther_fpkm_log.txt", open="wt")
+zz <- file(paste(logdir, "/map_panther_fpkm_log.txt", sep = ""), open="wt")
 sink(zz, type="message", append=T)
+
+# load the record data
+if(file.exists(recordfile) & recordfile != "none"){
+    userecord <- T
+    record <- read.csv(recordfile, sep = "\t", header = F) 
+} else {
+    userecord <- F
+}
+
 
 ## set up sample titles
 print("Loading and organizing data")
@@ -33,15 +41,8 @@ print("Loading and organizing data")
 names(panther) <- c("NCBI_id", "panther_acc", "panther_family.subfamily", "HMM_e-value", "HMM_bitscore", "alignment_range")
 panther <- panther[, names(panther) %in% c("NCBI_id", "panther_acc")]
 
-pheno$ids <- gsub("-", ".", pheno$ids, fixed = T)
-pheno$type <- gsub(" ", ".", pheno$type, fixed = T)
-pheno$titlename <- paste(pheno$ids, pheno$type, pheno$tissue, sep = "_")
-
-sampletitles <- data.frame(pheno$ids, pheno$titlename)
-
-samplenames <- data.frame(pheno$ids, pheno$titlename)
-names(samplenames) <- c("ids", "titlename")
-keepcolumns <- append(samplenames$ids, c("UniProt_id", "query_id", "protein_name"))
+keepcolumns <- append(pheno$ids, c("UniProt_id", "query_id", "protein_name"))
+keepcolumns <- make.names(keepcolumns)
 
 data <- data[, names(data) %in% keepcolumns]
 
@@ -56,9 +57,6 @@ mapped <- merge(data, panther_uniprot, all.x = T, all.y = F)
 
 # assign anything that didn't match the PANTHER database the value "NOHIT"
 mapped$panther_acc <- ifelse(is.na(mapped$panther_acc), "NOHIT", mapped$panther_acc)
-#mapped$discard <- is.na(mapped$panther_acc)
-#mapped <- mapped[mapped$discard == F,]
-#head(mapped)
 
     
 # filter and combine columns of interest (ex: pileus)
@@ -66,51 +64,112 @@ mapped$panther_acc <- ifelse(is.na(mapped$panther_acc), "NOHIT", mapped$panther_
 print("Writing subset tables in PANTHER generic mapping file format")
 
 # write complete data file
-write.csv(mapped, paste(workdir, "/", outfiles, "_complete_mappings.csv", sep = ""))
+filename <- paste(workdir, "/", outfiles, "_complete_mappings.csv", sep = "")
+message <- paste(filename, "_complete-PANTHER-mapping_written", sep = "")
+skip = F
+if(userecord){
+    record$match <- grepl(message, record[,1], fixed = T)
+    check <- record[record$match == T,]
+    skip <- (nrow(check) > 0)
+}
+if(!skip){
+    write.csv(mapped, filename)
+    print(message)
+}
 
-for(group in grouplist){
-    # subset columns of interest
-    samplenames$keep <- rep(T, nrow(samplenames))
-    samplenames$keep <- grepl(group, samplenames$titlename, fixed = T)
-    subsetnames <- samplenames[samplenames$keep == T,]
-    keepnames <- append(subsetnames$ids, c("query_id", "panther_acc"), nrow(subsetnames))
-    subset <- mapped[,names(mapped) %in% keepnames]
-    mean <- rep(0, nrow(subset))
+groupnumber <- 0
+for(groupset in groupsets){
+    groupnumber <- groupnumber + 1
+    print(paste("subset ", groupnumber, ": ", groupset), sep = "")
     
-    # log2 transform and average data
-    colcounter = 0
-    for(i in 1:nrow(subset)){
-        for(j in 1:ncol(subset)){
-            if(is.numeric(subset[i,j])){
-                if(i == 1){
-                    colcounter = colcounter + 1
+    filename <- paste(workdir, "/", outfiles, "_subset", groupnumber, "_fpkm_tables.csv", sep = "")
+    message <- paste(filename, "_PANTHER-generic_written", sep = "")
+    skip = F
+    
+        
+    # check to see if this set has been completed
+    if(userecord){
+        record$match <- grepl(message, record[,1], fixed = T)
+        check <- record[record$match == T,]
+        skip <- (nrow(check) > 0)
+    }
+    if(!skip){
+        
+        # subset samples
+        samplesets <- strsplit(groupset, ";", fixed = T)[[1]]
+        first1 <- T
+        if(!(args[5] == "all")){
+            for(sampleset in samplesets){
+                first2 <- T
+                setlist <- strsplit(sampleset, ",", fixed = T)[[1]]
+                if(length(setlist) > 1){
+                    colname <- setlist[1]
+                    conditions <- setlist[-1]
+                    for(condition in conditions){
+                        pheno$keep1 <- grepl(condition, pheno[,colname], ignore.case = T)
+                        if(first2){
+                            pheno$keep2 <- pheno$keep1
+                            first2 <- F
+                        } else {
+                            pheno$keep2 <- (pheno$keep1 | pheno$keep2)
+                        }
+                    }
+                    if(first1){
+                        pheno$keep3 <- pheno$keep2
+                        first1 <- F
+                    } else {
+                        pheno$keep3 <- (pheno$keep2 & pheno$keep3)
+                    }
                 }
-                mean[i] <- mean[i] + log2(subset[i,j] + 1)
+            }
+            if(!first1){
+                # only do this if you actually added something to keep3
+                phenosub <- pheno[(pheno$keep3 == T),]
+                keepsamples <- phenosub$ids
+                keepsamples <- c(keepsamples, c("query_id", "panther_acc"))
+                keepsamples <- make.names(keepsamples)
+                subset <- mapped[,(names(mapped) %in% keepsamples)]
             }
         }
-    }
-    subset$mean <- mean/colcounter
-    
-    # arrange columns in new dataframe -- first column must be a unique identifier
-    newdata <- data.frame(subset$query_id, subset$panther_acc, subset$mean)
-    names(newdata) <- c("query_id", "panther_acc", "mean")
-
-    # remove duplicate MSTRGs
-    condensed <- newdata[1,]
-    if(nrow(newdata) > 1){
-        for(i in 2:nrow(newdata)){
-            found = F
-            for(j in 1:nrow(condensed)){
-                if(newdata[i, "query_id"] == condensed[j, "query_id"]){
-                    found = T
+        
+        # log2 transform and average data
+        mean <- rep(0, nrow(subset))
+        colcounter = 0
+        for(i in 1:nrow(subset)){
+            for(j in 1:ncol(subset)){
+                if(is.numeric(subset[i,j])){
+                    if(i == 1){
+                        colcounter = colcounter + 1
+                    }
+                    mean[i] <- mean[i] + log2(subset[i,j] + 1)
                 }
             }
-            if(!found){
-                condensed <- rbind(condensed, newdata[i,])
+        }
+        subset$mean <- mean/colcounter
+        
+        # arrange columns in new dataframe -- first column must be a unique identifier
+        newdata <- data.frame(subset$query_id, subset$panther_acc, subset$mean)
+        names(newdata) <- c("query_id", "panther_acc", "mean")
+    
+        # remove duplicate MSTRGs
+        condensed <- newdata[1,]
+        if(nrow(newdata) > 1){
+            for(i in 2:nrow(newdata)){
+                found = F
+                for(j in 1:nrow(condensed)){
+                    if(newdata[i, "query_id"] == condensed[j, "query_id"]){
+                        found = T
+                    }
+                }
+                if(!found){
+                    condensed <- rbind(condensed, newdata[i,])
+                }
             }
         }
-    }
+        
+        # write csv -- must be tab separated for PANTHER upload
+        write.table(condensed, filename, sep = "\t", row.names = F, col.names = F)
+        print(message)
     
-    # write csv -- must be tab separated for PANTHER upload
-    write.table(condensed, paste(workdir, "/", outfiles, "_", group, "_fpkm_tables.csv", sep = ""), sep = "\t", row.names = F, col.names = F)
+    }
 }
