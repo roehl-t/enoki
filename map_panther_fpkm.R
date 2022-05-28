@@ -82,7 +82,7 @@ for(groupset in groupsets){
     groupnumber <- groupnumber + 1
     print(paste("subset ", groupnumber, ": ", groupset), sep = "")
     
-    filename <- paste(workdir, "/", outfiles, "_subset", groupnumber, "_fpkm_tables.csv", sep = "")
+    filename <- paste(workdir, "/", outfiles, "_subset", groupnumber, ".csv", sep = "")
     message <- paste(filename, "_PANTHER-generic_written", sep = "")
     skip = F
     
@@ -168,8 +168,11 @@ for(groupset in groupsets){
         }
         
         # write csv -- must be tab separated for PANTHER upload
-        write.table(condensed, filename, sep = "\t", row.names = F, col.names = F)
+            # must be tab-separated
+            # must not have header names or row names
+            # text must not be in quotation marks
+        write.table(condensed, filename, sep = "\t", row.names = F, col.names = F, quote = F)
+        
         print(message)
-    
     }
 }
