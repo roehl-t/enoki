@@ -181,7 +181,7 @@ for(col in colnames(data)){
 # convert to matrix
 datam <- as.matrix(data)
 
-if(nrow(datam) > 0){
+if(nrow(datam) >= 2 & ncol(datam) >= 2){
   # calculate plot size
   ############## not working correctly
   minRowHeight <- 80/(2494*0.1)
