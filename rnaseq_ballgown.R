@@ -298,6 +298,10 @@ write.csv(results_genes, paste(cutofftext, "mojo_genes_results_by_", covname, ".
 transcripts_q_lt_05 <- subset(results_transcripts, results_transcripts$qval <=0.05)
 genes_q_lt_05 <- subset(results_genes, results_genes$qval <=0.05)
 
+## Handle cases where no significant DEs are found
+continuet <- ifelse(nrow(transcripts_q_lt_05) > 0, T, F)
+continueg <- ifelse(nrow(genes_q_lt_05) > 0, T, F)
+
 ## Format for later gene ID using python
 # use first t_data.ctab file to match t_name MSTRG numbers to t_id
 finding <- T
@@ -311,46 +315,66 @@ while(finding){
     i <- i+1
 }
 tfile <- tfile[,(colnames(tfile) %in% c("t_name", "t_id"))]
-colnames(transcripts_q_lt_05)[2] <- "t_id"
-transcripts_q_lt_05$t_id <- as.numeric(transcripts_q_lt_05$t_id)
-tmerge <- merge(transcripts_q_lt_05, tfile, all.x = T, all.y = F)
+if(continuet){
+    colnames(transcripts_q_lt_05)[2] <- "t_id"
+    transcripts_q_lt_05$t_id <- as.numeric(transcripts_q_lt_05$t_id)
+    tmerge <- merge(transcripts_q_lt_05, tfile, all.x = T, all.y = F)
+}
 
 # To match up with transcriptome, you need to use an isoform ID
 # Every gene has at least one isoform, so add ".1" to each gene ID
-genes_q_lt_05$gene_id <- paste(genes_q_lt_05$id, ".1", sep = "")
+if(continueg){
+    genes_q_lt_05$gene_id <- paste(genes_q_lt_05$id, ".1", sep = "")
+}
 results_genes$gene_id <- paste(results_genes$id, ".1", sep = "")
 
-## Write lists of DEGs with q<0.05 (for gene ID) separated by new line
-write(tmerge$t_name, file = paste("./lists/", cutofftext, "mojo_transcripts_qlt05_results_by_", covname, ".txt", sep = ""), sep="\n")
-write(genes_q_lt_05$gene_id, file = paste("./lists/", cutofftext, "mojo_genes_qlt05_results_by_", covname, ".txt", sep = ""), sep="\n")
+## Write lists of DEs with q<0.05 (for gene ID) separated by new line
+if(continuet){
+    write(tmerge$t_name, file = paste("./lists/", cutofftext, "mojo_transcripts_qlt05_results_by_", covname, ".txt", sep = ""), sep="\n")
+} else {
+    print("No differentially expressed transcripts detected")
+}
+if(continueg){
+    write(genes_q_lt_05$gene_id, file = paste("./lists/", cutofftext, "mojo_genes_qlt05_results_by_", covname, ".txt", sep = ""), sep="\n")
+} else {
+    print("No differentially expressed genes detected")
+}
 
-print("DE lists written")
+if(continueg | continuet){
+    print("DE lists written")
+}
 
 ## Write expression data for DEs
-gene <- gexpr(bg_mojo_filt)
-gene <- data.frame(gene)
-colnames(gene) <- sub("FPKM.", "", colnames(gene))
-gene$id <- rownames(gene)
-genemerge <- merge(genes_q_lt_05, gene, all.x = T, all.y = F)
-rownames(genemerge) <- genemerge$gene_id
-writegenes <- genemerge[,(names(genemerge) %in% c("pval", "qval"))]
-write.csv(writegenes, paste(cutofftext, "mojo_genes_qlt05_results_by_", covname, ".csv", sep = ""), row.names=T)
-writegenes <- genemerge[,!(names(genemerge) %in% c("id", "feature", "pval", "qval", "gene_id"))]
-write.csv(writegenes, paste(cutofftext, "mojo_genes_qlt05_results_by_", covname, "_expr.csv", sep = ""), row.names=T)
+if(continueg){
+    gene <- gexpr(bg_mojo_filt)
+    gene <- data.frame(gene)
+    colnames(gene) <- sub("FPKM.", "", colnames(gene))
+    gene$id <- rownames(gene)
+    genemerge <- merge(genes_q_lt_05, gene, all.x = T, all.y = F)
+    rownames(genemerge) <- genemerge$gene_id
+    writegenes <- genemerge[,(names(genemerge) %in% c("pval", "qval"))]
+    write.csv(writegenes, paste(cutofftext, "mojo_genes_qlt05_results_by_", covname, ".csv", sep = ""), row.names=T)
+    writegenes <- genemerge[,!(names(genemerge) %in% c("id", "feature", "pval", "qval", "gene_id"))]
+    write.csv(writegenes, paste(cutofftext, "mojo_genes_qlt05_results_by_", covname, "_expr.csv", sep = ""), row.names=T)
+}
 
-transcript <- texpr(bg_mojo_filt)
-transcript <- data.frame(transcript)
-colnames(transcript) <- sub("FPKM.", "", colnames(transcript))
-transcript$t_id <- rownames(transcript)
-transmerge <- merge(transcripts_q_lt_05, transcript, all.x = T, all.y = F)
-transmerge2 <- merge(transmerge, tfile, all.x = T, all.y = F)
-rownames(transmerge2) <- transmerge2$t_name
-writetrans <- transmerge2[,(names(transmerge2) %in% c("pval", "qval"))]
-write.csv(writetrans, paste(cutofftext, "mojo_transcripts_qlt05_results_by_", covname, ".csv", sep = ""), row.names=T)
-writetrans <- transmerge2[,!(names(transmerge2) %in% c("t_id", "feature", "pval", "qval", "t_name"))]
-write.csv(writetrans, paste(cutofftext, "mojo_transcripts_qlt05_results_by_", covname, "_expr.csv", sep = ""), row.names=T)
+if(continuet){
+    transcript <- texpr(bg_mojo_filt)
+    transcript <- data.frame(transcript)
+    colnames(transcript) <- sub("FPKM.", "", colnames(transcript))
+    transcript$t_id <- rownames(transcript)
+    transmerge <- merge(transcripts_q_lt_05, transcript, all.x = T, all.y = F)
+    transmerge2 <- merge(transmerge, tfile, all.x = T, all.y = F)
+    rownames(transmerge2) <- transmerge2$t_name
+    writetrans <- transmerge2[,(names(transmerge2) %in% c("pval", "qval"))]
+    write.csv(writetrans, paste(cutofftext, "mojo_transcripts_qlt05_results_by_", covname, ".csv", sep = ""), row.names=T)
+    writetrans <- transmerge2[,!(names(transmerge2) %in% c("t_id", "feature", "pval", "qval", "t_name"))]
+    write.csv(writetrans, paste(cutofftext, "mojo_transcripts_qlt05_results_by_", covname, "_expr.csv", sep = ""), row.names=T)
+}
 
-print("DE data written")
+if(continueg | continuet){
+    print("DE data written")
+}
 
 ## Write expression data of entire transcriptome for later GO analysis
 gene <- gexpr(bg_mojo)
