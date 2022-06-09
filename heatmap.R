@@ -87,9 +87,8 @@ if(!(args[6] == "all")){
     data <- data[(data$keep2 == T),]
     data <- data[,!(colnames(data) %in% c("keep1", "keep2"))]
 }
-
 # remove extra columns
-data <- data[,!(colnames(data) %in% c("gene_name", "organism_name", "UniProt_id", "X", "query_id", "protein_name", "newname"))]
+data <- data[,!(colnames(data) %in% c("gene_name", "fc", "gene_id", "organism_name", "UniProt_id", "X", "query_id", "protein_name", "newname"))]
 
 # subset samples
 first1 <- T
@@ -175,7 +174,7 @@ if(average){
 
 # transform FPKM by log2(FPKM+1)
 for(col in colnames(data)){
-	data[,col] <- log2(data[,col] + 1)
+  data[,col] <- log2(data[,col] + 1)
 }
 
 # convert to matrix
