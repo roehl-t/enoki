@@ -15,7 +15,7 @@
 LOGLOC="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/working/logs"
 
 # data directory -- location of the .fastq.gz files. All data files should be in a single directory. Please begin with the .fastq.gz file format or edit rnaseq_pipeline.sh to match the one you have.
-DATADIR=
+DATADIR="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/data_combined"
 
 # sequencing batches -- if data was sequenced multiple times (such that each sample has multiple files for forward and reverse reads) they will need to be concatenated. Add the filename pattern that distinguishes each batch here.
 SEQBATCHES=("_001" "_002")
@@ -80,7 +80,6 @@ PANTHERFPKM=${scripts}/map_panther_fpkm.R
 ## parameter is provided to the main pipeline script)
 
 TRIMMOMATICADAPTERS="/Applications/Trimmomatic-0.38/adapters/TruSeq3-PE-2.fa" # pick the file that has your adapters
-FASTQLOC="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/data/data_qc_done"
 GENOME="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/genome_assemblies_all_files/ncbi-genomes-2021-11-01/GCA_011800155.1_ASM1180015v1/GCA_011800155.1_ASM1180015v1_genomic.fna"
 # notes for pheotype data file (see example file)
     # do not use spaces in your column names!
