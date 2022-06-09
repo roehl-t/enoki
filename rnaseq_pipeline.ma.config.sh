@@ -12,10 +12,10 @@
 #### User Options ####
 
 # location for all log files
-LOGLOC="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/working/logs"
+LOGLOC=/home/thomas/workspace/mojo-test/logs
 
 # data directory -- location of the .fastq.gz files. All data files should be in a single directory. Please begin with the .fastq.gz file format or edit rnaseq_pipeline.sh to match the one you have.
-DATADIR="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/data_combined"
+DATADIR="/mnt/raid1/Flammulina-velutipes_development/Data/sequences/data_all"
 
 # sequencing batches -- if data was sequenced multiple times (such that each sample has multiple files for forward and reverse reads) they will need to be concatenated. Add the filename pattern that distinguishes each batch here.
 SEQBATCHES=("_001" "_002")
@@ -29,38 +29,39 @@ USEUNPAIRED=Y
 
 # working directory -- where to put files that are being worked on currently
   # hint: use an SSD for speed improvement
-WRKDIR="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/working"
+WRKDIR=/home/thomas/workspace/mojo-test
 
 # final directory -- where the files should go for storage
   # hint: use a large drive
   ## must have a different name than the working directory
-DESTDIR="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/run_2022"
+DESTDIR="/mnt/raid1/Flammulina-velutipes_development/Data/mojo-test"
 
 # how many CPUs to use on the current machine?
-NUMCPUS=6
+NUMCPUS=12
 
 
 #### Program paths ####
 #if these programs are not in any PATH directories, please edit accordingly:
 
-## paths for programs not in enoki
-FASTQC=/Applications/FastQC.app/Contents/MacOS/fastqc
-FQTRIM=/Applications/fqtrim-0.9.7/fqtrim
-TRIMMOMATIC=/Applications/Trimmomatic-0.38/trimmomatic-0.38.jar
-HISAT2=/Applications/hisat2-2.2.1/hisat2
-STRINGTIE=/Applications/stringtie-1.3.6.OSX_x86_64/stringtie
-SAMTOOLS=/Applications/samtools-1.8/samtools
-BALLGOWN=/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/scripts/rnaseq_ballgown.R
-GFFREAD=/Applications/gffread-0.12.7.OSX_x86_64/gffread
-BLASTXAPP=/Applications/ncbi-blast-2.10.0+/bin/blastx
-BLASTNAPP=/Applications/ncbi-blast-2.10.0+/bin/blastn
-PANTHERSCORE=/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/panther/pantherScore2.2/pantherScore2.2.pl
+## paths for programs not in enoki (most will automatically install to /bin)
+FASTQC=/bin/fastqc
+FQTRIM=/home/thomas/bioinformatics/fqtrim-0.9.7.Linux_x86_64/fqtrim
+TRIMMOMATIC=/home/thomas/bioinformatics/Trimmomatic-0.39/trimmomatic-0.39.jar
+HISAT2=/bin/hisat2
+STRINGTIE=/bin/stringtie
+SAMTOOLS=/bin/samtools
+GFFREAD=/bin/gffread
+BLASTXAPP=/home/thomas/bioinformatics/ncbi-blast-2.13.0+/bin/blastx
+BLASTNAPP=/home/thomas/bioinformatics/ncbi-blast-2.13.0+/bin/blastn
+DOCKER=/bin/docker
+PANTHERSCORE=/home/thomas/bioinformatics/pantherScore2.2/pantherScore2.2.pl # download the pantherScore#.# directory from ftp://ftp.pantherdb.org//hmm_scoring/current_release/
 
 ## paths for programs included in enoki
-scripts=/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/scripts
+scripts=/mnt/raid1/Flammulina-velutipes_development/scripts-test
 # all these should be in the same folder
   # if they are, simply update scripts= with the name of the folder
   # if scripts are in separate folders, update all the variables below
+BALLGOWN=${scripts}/rnaseq_ballgown.R
 INTERLEAVE=${scripts}/interleave_pairs.py
 REMOVERRNA=${scripts}/remove_rRNA.R
 TRANSCRIPTCOUNTER=${scripts}/transcript_counter.R
@@ -79,19 +80,19 @@ PANTHERFPKM=${scripts}/map_panther_fpkm.R
 ## working directory where this script is, unless the optional <output_dir>
 ## parameter is provided to the main pipeline script)
 
-TRIMMOMATICADAPTERS="/Applications/Trimmomatic-0.38/adapters/TruSeq3-PE-2.fa" # pick the file that has your adapters
-GENOME="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/genome_assemblies_all_files/ncbi-genomes-2021-11-01/GCA_011800155.1_ASM1180015v1/GCA_011800155.1_ASM1180015v1_genomic.fna"
+TRIMMOMATICADAPTERS="/home/thomas/bioinformatics/Trimmomatic-0.39/adapters/TruSeq3-PE-2.fa" # pick the file that has your adapters
+GENOME="/mnt/raid1/Flammulina-velutipes_development/Data/sequences/fv_genome_fujian_2020/GCA_011800155.1_ASM1180015v1_genomic.fna"
 # notes for pheotype data file (see example file)
     # do not use spaces in your column names!
     # must include a column labeled "ids" that matches the sample IDs used in the filenames
-PHENODATA="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/fv_sampling_data.csv"
-BLASTDIR="/Applications/ncbi-blast-2.10.0+/bin"
-PANTHERLIBDIR="/Volumes/RAID_5_data_arra/Todd/Thomas_Roehl_RNASeq/panther/target4/famlib/rel/PANTHER16.0_altVersion/ascii/PANTHER16.0" # download and extract any one of the .tgz files (all contain same data) from http://data.pantherdb.org/ftp/panther_library/current_release/
+PHENODATA="/mnt/raid1/Flammulina-velutipes_development/Data/mojo-test/sample-data-for-pipeline.csv"
+BLASTDIR="/home/thomas/bioinformatics/ncbi-blast-2.13.0+/bin"
+PANTHERLIBDIR="/home/thomas/bioinformatics/PANTHER17.0" # download and extract the _hmmscoring.tgz file from ftp://ftp.pantherdb.org//hmm_scoring/current_release/
 
 
 ## list of data for BLAST
-RRNAFILE="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/rRNA/fungi_18S_28S_ITS.fna"
-UNIPROTFILE="/Volumes/RAID_5_data_array/Todd/Thomas_Roehl_RNASeq/uniprot/uniprot_agaricales_taxonomy_5338.fasta"
+RRNAFILE="/mnt/raid1/Flammulina-velutipes_development/Data/sequences/rRNA/fungi.rRNA.fna"
+UNIPROTFILE="/mnt/raid1/Flammulina-velutipes_development/Data/sequences/uniprot_agaricales/uniprot-taxonomy_5338.fasta"
 
 
 ## sample subset declarations
@@ -201,4 +202,3 @@ SHORTENNAMES=3
   # to keep a sample, it must match at least one condition specified for each column
   # to create multiple subsets, separate each subset with a pipe (|)
 PANTHERSUBSETS="ids,ROEHL|tissue,myc|tissue,sti|tissue,pil|tissue,gil|type,you|type,pri|type,cul|type,nor"
-
