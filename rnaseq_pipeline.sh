@@ -1465,6 +1465,9 @@ mojo() {
         fi
 
         for deglist in ${ballgownout}/lists/*.txt; do
+            set +e
+            countmstrgs=$(grep -c "MSTRG" ${deglist})
+            set -e
             currentDEGList=${deglist##*/}
             currentDEGs=${currentDEGList%.txt}
             
@@ -1473,7 +1476,7 @@ mojo() {
             if [[ ${resume} == "Y" && ${chkresult} == "T" ]]; then
                 skip="Y"
             fi
-            if [[ ${skip} == "N" ]]; then
+            if [[ ${skip} == "N" ]] && (( countmstrgs > 0 )); then
                 echo "Current DEG list: ${currentDEGs}"
 
                 skip="N"
@@ -1965,14 +1968,11 @@ done
 
 # end-of-pipeline file management
 
-# move forgotten files to destination/other
-mvt ${otherdest} "${output}/*"
-
 # remove local input, output, and database folders
-rm ${output}
+removedir ${output}
 emptydir ${input}
-rm ${input}
+removedir ${input}
 emptydir ${databases}
-rm ${databases}
+removedir ${databases}
 
 echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> PIPELINE-COMPLETE."
