@@ -3,7 +3,7 @@
 library(ggplot2)
 
 
-genes <- c("fds", "fvfd")                  #list of genes to subset
+genes <- c("cell division")                  #list of genes to subset
 stages <- c("any")                  # use "any" to select all stages
 tissues <- c("any")                  # use "any" to select all tissues
 andor <- "and"                  # either "and" or "or" -- match one or both?
@@ -11,9 +11,9 @@ xaxis <- "combo"                  # "tissue" "stage" or "combo" (for both)
 arrangeby <- "tissue"                  # when using "combo" in plot, sort by tissue or stage
 
 
-data <- read.csv("~/R/Flammulina-velutipes/ballgown/bg_output_2022-01-01/named/300_enoki_genes_qlt05_results_by_tissue_expr.csv")
+data <- read.csv("/mnt/raid1/Flammulina-velutipes_development/Data/mojo-test/analysis/auto-5000/calculations/proteome/named/mojo_genes_qlt05_results_by_tissue_expr.csv")
 
-pheno <- read.csv("~/R/Flammulina-velutipes/ballgown/fv_sampling_data.csv")
+pheno <- read.csv("/mnt/raid1/Flammulina-velutipes_development/Data/sample-data-for-pipeline.csv")
 
 # keep only specified tissues/stages
 pheno$keepS <- rep(0, nrow(pheno))
@@ -169,7 +169,8 @@ for(list1 in list1s){
 graphdata$combo <- factor(graphdata$combo, levels = listcombos)
 
 # make graphs
-ggplot(graphdata, aes_string(x = xaxis, y = "log2", fill = "gene", shape = "gene")) + 
+gg <- ggplot(graphdata, aes_string(x = xaxis, y = "log2", fill = "gene", shape = "gene")) + 
   stat_summary(fun = "mean", geom = "bar", position = position_dodge2(preserve = "single")) + 
   geom_jitter(position = position_dodge2(width = 1, preserve = "single")) + theme_classic() + 
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+print(gg)
