@@ -1478,6 +1478,8 @@ mojo() {
             fi
             if [[ ${skip} == "N" ]] && (( countmstrgs > 0 )); then
                 echo "Current DEG list: ${currentDEGs}"
+                
+                filename=${ballgownout}/lists/${currentDEGs}.fa
 
                 skip="N"
                 chklog "${setname}_${currentDEGs}_matchgenes_complete"
@@ -1487,7 +1489,6 @@ mojo() {
                 if [[ ${skip} == "N" ]]; then
                     # biopython: match MSTRNG numbers from DEGs and .fa sequences
                     echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> Match MSTRNGs to genes (Biopython)"
-                    filename=${ballgownout}/lists/${currentDEGs}.fa
                     if [[ -f ${filename} ]]; then
                         rm ${filename}
                     fi
