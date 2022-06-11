@@ -1735,7 +1735,7 @@ mojo() {
                 if [[ ${resume} == "Y" ]]; then
                     record=${LOGFILE}
                 fi
-                Rscript ${PANTHERFPKM} ${deglist} ${pantherout}/${basename}_panther_mapping.csv ${pantherout}/${basename}_ncbi_list.csv ${PHENODATA} ${PANTHERSUBSETS} ${basename}_panther_mapping ${pantherout}/final/${basename} ${LOGLOC} ${record}
+                Rscript ${PANTHERFPKM} ${deglist} ${pantherout}/${basename}_panther_mapping.csv ${pantherout}/${basename}_ncbi_list.csv ${PHENODATA} ${PANTHERSUBSETS} ${setname}_${basename}_panther_mapping ${pantherout}/final/${basename} ${LOGLOC} ${record}
                 echo [`date +"%Y-%m-%d %H:%M:%S"`] "#> ${setname}_${deglist}_panther_fpkm_complete"
             fi
         done
